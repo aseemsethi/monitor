@@ -2,7 +2,7 @@
 #  ar -cvq libxmlparse.a xmlparse.o
 
 # Parameters
-INSTDIR = /home/asethi/mont/bin
+INSTDIR = /home/asethi/monitor/bin
 XMLP = xmlparse
 
 SOURCES_XMLP.c =

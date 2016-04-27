@@ -1,4 +1,4 @@
-INSTDIR = /home/asethi/mont/bin
+INSTDIR = /home/asethi/monitor/bin
 
 all:
 	(cd monitor/xmlparser; make all)

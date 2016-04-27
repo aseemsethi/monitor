@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <expat.h>
 #include "xmlparse.h"
-#include "../log.h"
+#include "../common/log.h"
 
 FILE *flog_g = NULL;
 //#define DEBUG 1

@@ -1,20 +1,15 @@
-This is a Monitor Application. 
+This is a Monitor Application v2.0
 
 One of the things that can be tested is SSL. There are many Assessment Tools today that can also be used. One such list of tools is at https://github.com/ssllabs/research/wiki/Assessment-Tools.
 
 A list of cve ids is maintained at: https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=openssl
 
-The Monitor Application is a single binary called "mont_cust". This is spawned by the controller server for each customer. 
-From a client m/c invoke the RPC call that sends a message to the RPC Server, called the controller in ./monT/controller.
-./mont_client localhost ./mont_cust ping 100 start
-./mont_client localhost ./mont_cust ssl 200 start
+The Monitor Application is a single binary called "mont_cust". This is spawned as:
+ ./mont_cust ssl 100
 
-The above command sends an XML RPC message to the server, where the mont_server program is running. The mont_server() does the following:
-mont_server.c - takes the remote command, and spawns a "server" thread the first time it is called.
-server.c - this is where the "server" thread is running. This takes the even from the Q[] into which the mont_server had put in the event.
-monitor/mont_cust.c - this is made it into a binary called "mont_cust", that gets execvp in the step above, when the "server" thread forks a thread and execvps the "mont_cust" program with the parameters, <customer_name> and <customer_id>. Based on the <customer_id>, it calls a library called libxmlparse.a which parses the XML config, and then starts threads for each of the monitors needed, like http, ssl, ping etc. 
-
-These threads then run for a scheduled time, and write the status lines into a *_log file in /var/monT/<custID>, like ssl_logs, ping_logs etc.
+The SSL Test Process executes all tests, and write:
+- log file in /var/monT/<custID> - ssl_logs, 
+- stat  file in /var/monT/<custID> - ssl_stats, 
 
 Example of Config on /var/monT/100/config.xml
 
@@ -26,15 +21,9 @@ Example of Config on /var/monT/100/config.xml
 
 Logging
 =======
-1) To see all processes that the Controller has started
-./mont_client localhost ./mont_cust ping 100 dump
-
-2) See all logs (cust, ssl, ping) of the customer if 100 and/or 200 in separate xterm windows 
+See all logs (cust, ssl, ping) of the customer if 100 and/or 200 in separate xterm windows 
 ./logs 100 200
 
-3) Add your userid to sudoers file, and then you can run give the following command to send SIGUSR1 to the mont_cust process that is handled and stats about SSL tests are printed into the ssl_logs file.
-./stats
-Contents: sudo  pkill -SIGUSR1 mont_cust 
 
 SSL Versions and Recommendations
 ================================

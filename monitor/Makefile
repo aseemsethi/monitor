@@ -3,7 +3,7 @@
 #
 
 # Parameters
-INSTDIR = /home/asethi/mont/bin
+INSTDIR = /home/asethi/monitor/bin
 MONT = mont_cust
 
 csrc = $(wildcard ssl/*.c)  \
