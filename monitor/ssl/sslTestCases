@@ -1,0 +1,40 @@
+/*
+ * All SSL Test Cases
+ */
+sslTests_t sslTests[SSL_NUM_TESTS] = {
+	{	"1_start_tests", 
+		initParams, sendHello, verifyPassed, result1, 
+		{ 
+			{0,0}, {0,0}
+		},
+		"Send Client Hello, and expect Server Hello, Certificate and Hello Done messages",
+	},
+	{	"2_ version_check", 
+		initParamsVerCheck, sendHello, verifyFailed, result1, 
+		{ 
+			{0,0}, {0,0}
+		},
+		"Send an Invalid Version Number in the 2nd field of SSL pkt, and expect an Alert msg back, with the error mentioning Version Error",
+	},
+	{	"3_cipher_check",  
+		initCipherCheck, sendHello, verifyFailed, result1, 
+		{ 
+			{0,0}, {0,0}
+		},
+		"Send an Invalid Cipher, and expect an Alert msg back, with the error mentioning Cipher Error",
+	},
+	{	"4_server_hello",  
+		initServerHello, sendHello, verifyFailed, result1, 
+		{ 
+			{0,0}, {0,0}
+		},
+		"Send Server Hello vs Client Hello, and expect an optional Alert msg back, with the error mentioning Error as Handshake Error. The server might not send an Alert, but can just close the TCP socket.",
+	},
+	{	"5_invalid_session_id",  
+		initSessionId, sendHello, verifyFailed, result1, 
+		{ 
+			{0,0}, {0,0}
+		},
+		"Send Client Hello with Invalid Session ID Length, and expect an Alert msg back, with the error mentioning Malformed Client Hello.",
+	}
+};

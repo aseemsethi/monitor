@@ -1,0 +1,2 @@
+sudo  pkill -SIGUSR1 mont_cust 
+

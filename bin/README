@@ -1,0 +1,6 @@
+This is the directory hostong the following content
+- all binaries
+- libraries - libxmlparse.a
+
+Added a sample config.xml file. This should be copied to /var/monT/<custid> directory, beore starting the mont_server program.
+
