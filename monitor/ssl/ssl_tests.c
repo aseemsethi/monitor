@@ -24,17 +24,13 @@ FILE *fp;
 void* recvFunction(void *arg);
 
 typedef struct {
-	HandshakeType sslSendHt;
-	HandshakeType sslRecvHt;
-} sslMsgs_t;
-
-typedef struct {
 	char cveId[20];
 	int (*init_params)(sslStruct *ssl, param_t *args);
 	int (*send)(sslStruct *ssl, param_t *args);
 	int (*verify)(sslStruct *ssl, param_t *args);
-	int (*result)(sslStruct *ssl, param_t *args, char* details);
-	sslMsgs_t sslMsgs[2]; 
+	int (*update_stats)(sslStruct *ssl, param_t *args, char* details);
+	int (*send_again)(sslStruct *ssl, param_t *args);
+	int (*verify_again)(sslStruct *ssl, param_t *args);
 	char details[240];
 } sslTests_t;
 
@@ -45,6 +41,14 @@ typedef struct {
 } sslTestsResults_t;
 
 sslTestsResults_t sslTestsResults[SSL_NUM_TESTS];
+
+// 2nd Phase of Testing - post ClientHello/ServerHello
+int verifyAgainNull (sslStruct *sslP, param_t *args) 	{ 
+	return 0;
+}
+int sendAgainNull (sslStruct *sslP, param_t *args) 	{ 
+	return 0;
+}
 
 int initSessionId (sslStruct *sslP, param_t *args) 	{ 
 	initParams(sslP, args);
@@ -178,8 +182,9 @@ int verifyPassed (sslStruct *sslP, param_t *args) {
 /*
  * TBD: Generally, we should check for a receipt of ALERT, that indicates 
  * an SSL Protocol error and closure of SSL connection.
+ * This function updates STATS file only.
  */
-int result1 (sslStruct *sslP, param_t *args, char* details) { 
+int updateStats (sslStruct *sslP, param_t *args, char* details) { 
 	if (sslTestsResults[args->testId].result == PASS) {
 		log_info(sslP->fsslStats, "Test ID: %s, Pass", 
 			sslTestsResults[args->testId].cveId);
@@ -264,10 +269,18 @@ sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
  * In fact, let's create a new conn, for every test
  * TBD: kill the recvThread too at this point, since we spawn it again
  */
-		if (sslTests[i].result(sslP, sslP->paramP, sslTests[i].details) 
+		if (sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details) 
 					== FAIL) {
 			log_error(sslP->fp, "\nSSL: TestsExec: Failed Test %d", i);
+		} else {
+		// 1st State Passed...
+		// 2nd State, after ClientHello/ServerHello
+		sslTests[i].send_again(sslP, sslP->paramP);
+		sslTests[i].verify_again(sslP, sslP->paramP);
+		sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details); 
 		}
+
+// Final Cleanup
 		close(sslP->sock);
 		status = pthread_cancel(recvThread);
 		if (status != 0) {
