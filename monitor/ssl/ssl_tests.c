@@ -331,7 +331,7 @@ sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
     sigact.sa_flags = 0;
     sigaction(SIGUSR1, &sigact, (struct sigaction*) NULL);
 
-	for (i=5;i<SSL_NUM_TESTS;i++) {
+	for (i=0;i<SSL_NUM_TESTS;i++) {
 		log_debug(sslP->fp, "Exec Test:%d", i); fflush(sslP->fp);
 		sslP->paramP->testId = i;
 		strncpy(sslTestsResults[i].cveId, sslTests[i].cveId, 
