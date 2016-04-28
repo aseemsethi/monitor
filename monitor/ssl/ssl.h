@@ -1,6 +1,16 @@
 #include <linux/if_packet.h> //sll
 #include <sys/ioctl.h>
 #include <net/if.h>
+/* For Parsing Certificates */
+#include <openssl/x509v3.h>
+#include <openssl/bn.h>
+#include <openssl/asn1.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
+#include <openssl/md5.h>
+/* end */
 
 #define INTERFACE "eth0"
 #define SSL_PORT 4433
@@ -40,7 +50,7 @@ typedef struct {
 	int hello_value;
 
     int state;
-    uchar *buff;
+    uchar *buff;  // used as recv buffer only
     int buffLen;
     char srcIP[20];
     ushort srcPort;
@@ -48,7 +58,7 @@ typedef struct {
     //char sessionID[40];
     int versionResp[2];
     int handshakeResp;
-    // RSA *rsa_key;
+    RSA *rsa_key;
     // Stuff needed to create MasterSecret
     uchar handshakeMsgs[6000];
     int handshakeMsgsIndex;
@@ -115,4 +125,29 @@ typedef enum {
 #define TLS_RSA_WITH_AES_256_CBC_SHA  "0x00,0x35"
 #define TLS_RSA_WITH_AES_128_CBC_SHA256 "0x00,0x3C"
 #define TLS_RSA_WITH_AES_256_CBC_SHA256 "0x00,0x3D"
+
+#define SSL3_AD_CLOSE_NOTIFY                   0 
+#define SSL3_AD_UNEXPECTED_MESSAGE            10  
+#define SSL3_AD_BAD_RECORD_MAC                20     
+#define TLS1_AD_DECRYPTION_FAILED             21    
+#define TLS1_AD_RECORD_OVERFLOW               22   
+#define SSL3_AD_DECOMPRESSION_FAILURE         30  
+#define SSL3_AD_HANDSHAKE_FAILURE             40 
+#define SSL3_AD_NO_CERTIFICATE                41
+#define SSL3_AD_BAD_CERTIFICATE               42      
+#define SSL3_AD_UNSUPPORTED_CERTIFICATE       43     
+#define SSL3_AD_CERTIFICATE_REVOKED           44    
+#define SSL3_AD_CERTIFICATE_EXPIRED           45   
+#define SSL3_AD_CERTIFICATE_UNKNOWN           46  
+#define SSL3_AD_ILLEGAL_PARAMETER             47 
+#define TLS1_AD_UNKNOWN_CA                    48
+#define TLS1_AD_ACCESS_DENIED                 49      
+#define TLS1_AD_DECODE_ERROR                  50     
+#define TLS1_AD_DECRYPT_ERROR                 51    
+#define TLS1_AD_EXPORT_RESTRICTION            60   
+#define TLS1_AD_PROTOCOL_VERSION              70  
+#define TLS1_AD_INSUFFICIENT_SECURITY         71 
+#define TLS1_AD_INTERNAL_ERROR                80
+#define TLS1_AD_USER_CANCELLED                90   
+#define TLS1_AD_NO_RENEGOTIATION             100  
 

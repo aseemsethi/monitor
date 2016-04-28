@@ -2,22 +2,22 @@
  * All SSL Test Cases
  */
 sslTests_t sslTests[SSL_NUM_TESTS] = {
-	{	"1_start_tests", 
+	{	"1_startPositiveTests", 
 		initParams, sendHello, verifyPassed, updateStats, 
 		sendAgainNull, verifyAgainNull,
 		"Send Client Hello, and expect Server Hello, Certificate and Hello Done messages",
 	},
-	{	"2_ version_check", 
+	{	"2_ versionInvalidCheck", 
 		initParamsVerCheck, sendHello, verifyFailed, updateStats,
 		sendAgainNull, verifyAgainNull,
 		"Send an Invalid Version Number in the 2nd field of SSL pkt, and expect an Alert msg back, with the error mentioning Version Error",
 	},
-	{	"3_cipher_check",  
+	{	"3_cipherInvalidCheck",  
 		initCipherCheck, sendHello, verifyFailed, updateStats,
 		sendAgainNull, verifyAgainNull,
 		"Send an Invalid Cipher, and expect an Alert msg back, with the error mentioning Cipher Error",
 	},
-	{	"4_server_hello",  
+	{	"4_serverHello",  
 		initServerHello, sendHello, verifyFailed, updateStats,
 		sendAgainNull, verifyAgainNull,
 		"Send Server Hello vs Client Hello, and expect an optional Alert msg back, with the error mentioning Error as Handshake Error. The server might not send an Alert, but can just close the TCP socket.",
@@ -26,5 +26,10 @@ sslTests_t sslTests[SSL_NUM_TESTS] = {
 		initSessionId, sendHello, verifyFailed, updateStats,
 		sendAgainNull, verifyAgainNull,
 		"Send Client Hello with Invalid Session ID Length, and expect an Alert msg back, with the error mentioning Malformed Client Hello.",
+	},
+	{	"6_send_serverKeyExchange",
+		initParams, sendHello, verifyPassed, updateStats,
+		sendServerKeyExchange, verifyAgainNull,
+		"Send Client Hello followed by a ServerKeyExchange rather than a ClientKeyExchange. Expect an Alert msg back, with the error mentioning Unexpected Message",
 	}
 };
