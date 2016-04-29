@@ -21,4 +21,6 @@ The Keys are generated as explained above:
 1) server.cert	-  Self Signed Certificate
 1) Flags	- -debug -state -msg 
 
-
+To check the modulus of the key you generated, given the following commnad:
+$ openssl rsa -in www.key -noout -modulus
+When you run the client program, you will find that this is being printed in the verifyCertificate() function.

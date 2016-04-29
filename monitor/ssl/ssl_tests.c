@@ -93,6 +93,12 @@ sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{
 	PUT_BE16(&p[7], 0); // **** fill in this later at this point
 	length = length + 4;
 
+	/*
+ 	 *	If RSA is being used for key agreement and authentication, the
+ 	 *	client generates a 48-byte premaster secret, encrypts it using the
+ 	 *	public key from the server's certificate, and sends the result in
+ 	 *	an encrypted premaster secret message.  
+ 	 */
 	// pre-master secret encrypted with Server's public key
 	// Total Len = 48 bytes (2 byte version, 46 byte key)
 	// Fil in the 2 Byte Version first

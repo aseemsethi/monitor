@@ -225,9 +225,11 @@ recvServerHello (sslStruct *sslP) {
     // buff[0] points to Handshake Type - ServerHello
     // random bytes start from index 6 (including time stamp)
     memcpy(&(sslP->paramP->serverRandom[0]), &(sslP->paramP->buff[6]), 32);
+	/*
     log_info(fp, "\n Server Random recvd: ");
     for(i = 0; i <32; i++)
         log_info(fp, "%x ", sslP->paramP->serverRandom[i]);
+	*/
 }       
 
 // buff[0] points to Alert Message, i.e. Level and Description
