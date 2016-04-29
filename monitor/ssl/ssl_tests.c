@@ -27,10 +27,11 @@ typedef struct {
 	char cveId[30];
 	int (*init_params)(sslStruct *ssl, param_t *args);
 	int (*send)(sslStruct *ssl, param_t *args);
-	int (*verify)(sslStruct *ssl, param_t *args);
+	int (*verify)(sslStruct *ssl, param_t *args, int verifyAlertCode);
+	int verifyAlertCode;
 	int (*update_stats)(sslStruct *ssl, param_t *args, char* details);
 	int (*send_again)(sslStruct *ssl, param_t *args);
-	int (*verify_again)(sslStruct *ssl, param_t *args);
+	int (*verify_again)(sslStruct *ssl, param_t *args, int verifyAlertCode);
 	char details[240];
 } sslTests_t;
 
@@ -119,7 +120,7 @@ sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{
 }
 
 // 2nd Phase of Testing - post ClientHello/ServerHello
-int verifyAgainNull (sslStruct *sslP, param_t *args) 	{ 
+int verifyAgainNull (sslStruct *sslP, param_t *args, int verifyAlertCode) 	{ 
 	return 0;
 }
 int sendAgainNull (sslStruct *sslP, param_t *args) 	{ 
@@ -158,6 +159,7 @@ int initParams (sslStruct *sslP, param_t *args) 	{
 	int i;
 
 	sslP->paramP->handshakeResp = 0;
+	sslP->paramP->verifyAlertCode = INVALID_CODE;
     sslP->paramP->handshakeMsgsIndex = 0; // Msgs recvd from Server for MD5/SHA1
     sslP->paramP->clientHandshakeMsgsIndex = 0; // Msgs saved for MD5/SHA1
     //memset(sslP->paramP->buff, 0, 1024);
@@ -240,16 +242,33 @@ int sendHello (sslStruct *sslP, param_t *args) 	{
 	sendData(sslP, buff, length);
 }
 
-int verifyFailed (sslStruct *sslP, param_t *args) { 
+int verifyFailed (sslStruct *sslP, param_t *args, int verifyAlertCode) { 
 	if (sslP->paramP->handshakeResp & (0x01 <<server_hello)) {
 		log_debug(fp, "Server Hello Recvd."); fflush(fp);
 		sslTestsResults[args->testId].result = FAIL;
 	} else {
 		log_debug(fp, "Server Hello NOT Recvd. %x", sslP->paramP->handshakeResp); fflush(fp);
-		sslTestsResults[args->testId].result = PASS;
+		// In veriFailed, we check if there was an ALERT expected. and if it 
+		// matches the recevied ALERT msg in the listen thread.
+		if ((verifyAlertCode != INVALID_CODE) && 
+		    (sslP->paramP->verifyAlertCode != INVALID_CODE)) {
+			if (verifyAlertCode == sslP->paramP->verifyAlertCode) {
+				printf("\nSSL: ALERT Code matches for test:%d",
+					args->testId); fflush(stdout);
+				sslTestsResults[args->testId].result = PASS;
+			} else {	
+				printf("\nSSL ERROR: ALERT Code mismatch for test:%d",
+					args->testId); fflush(stdout);
+				sslTestsResults[args->testId].result = FAIL;
+			}
+		} else {
+			printf("\nSSL: No ALERT recvd. for test:%d",
+				args->testId); fflush(stdout);
+			sslTestsResults[args->testId].result = PASS;
+		}
 	}
 }
-int verifyPassed (sslStruct *sslP, param_t *args) { 
+int verifyPassed (sslStruct *sslP, param_t *args, int verifyAlertCode) { 
 	if (sslP->paramP->handshakeResp & (0x01 <<server_hello)) {
 		log_debug(fp, "Server Hello Recvd."); fflush(fp);
 		sslTestsResults[args->testId].result = PASS;
@@ -345,32 +364,29 @@ sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
 		// Wait for recvThread to signal that we can proceed with 
 		// the verification step below
 		// TBD: For now, Sleep for 0.8 Sec, giving a chance to recvThread
-		tim1.tv_sec=0;
-		tim1.tv_nsec=800000000L;
-		if (nanosleep(&tim1, NULL) < 0) {
-			log_error(sslP->fp, "SSL: Error: nanosleep call failed!");
-			return -1;
-		} 
+		signalRecvThread(sslP);
 
-		sslTests[i].verify(sslP, sslP->paramP);
+		sslTests[i].verify(sslP, sslP->paramP, sslTests[i].verifyAlertCode);
+		if (sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details) 
+					== FAIL) {
+			log_error(sslP->fp, "\nSSL: TestsExec: Failed Test %d", i);
+			// We do not continue to 2nd phase of test, i.e. another pkt 
+			// exhcnage, due to this error.
+		} else {
+		// 1st State Passed...
+			// 2nd State, after ClientHello/ServerHello
+			sslTests[i].send_again(sslP, sslP->paramP);
+			signalRecvThread(sslP);
+			sslTests[i].verify_again(sslP, sslP->paramP, sslTests[i].verifyAlertCode);
+			sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details); 
+		}
 /* 
  * Note that in the results(), if we find there is a failure, the 
  * socket might be closed. So, we need to ensure that there is a 
  * new socket created, before running further tests.
  * In fact, let's create a new conn, for every test
- * TBD: kill the recvThread too at this point, since we spawn it again
+ * Lill the recvThread too at this point, since we spawn it again
  */
-		if (sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details) 
-					== FAIL) {
-			log_error(sslP->fp, "\nSSL: TestsExec: Failed Test %d", i);
-		} else {
-		// 1st State Passed...
-		// 2nd State, after ClientHello/ServerHello
-		sslTests[i].send_again(sslP, sslP->paramP);
-		signalRecvThread(sslP);
-		sslTests[i].verify_again(sslP, sslP->paramP);
-		sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details); 
-		}
 
 // Final Cleanup
 		close(sslP->sock);
@@ -382,6 +398,7 @@ sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
 			exit(1);
 		}
 		sslP->paramP->handshakeResp = 0;
+		 sslP->paramP->verifyAlertCode = INVALID_CODE;
     	initConnectionToServer(sslP, xmlData);
  		status = pthread_create(&recvThread, NULL, &recvFunction, 
 					(void*)sslP);

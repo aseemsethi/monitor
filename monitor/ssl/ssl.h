@@ -37,6 +37,8 @@
 #define SSL_CHANGE_CIPHER_SPEC_RECVD 2
 #define SSL_FINISHED_RECVD 3
 
+#define INVALID_CODE 1000
+
 typedef struct {
     // Set before every test
     int testId;
@@ -58,6 +60,7 @@ typedef struct {
     //char sessionID[40];
     int versionResp[2];
     int handshakeResp;
+	int verifyAlertCode;
     RSA *rsa_key;
     // Stuff needed to create MasterSecret
     uchar handshakeMsgs[6000];

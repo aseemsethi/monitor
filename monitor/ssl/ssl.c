@@ -238,6 +238,8 @@ recvAlert (sslStruct *sslP) {
 	printf("\n Alert !!"); fflush(stdout);
 	if (buff[0] == 1) printf(" WARNING:");
 	if (buff[0] == 2) printf(" FATAL:");
+	// save the ALERT Code for the sslTestExec to check.
+	sslP->paramP->verifyAlertCode = buff[1]; 
 	switch (buff[1]) {
 	case SSL3_AD_CLOSE_NOTIFY: //                   0      
 		printf(" SSL3_AD_CLOSE_NOTIFY"); break;
@@ -287,6 +289,9 @@ recvAlert (sslStruct *sslP) {
 		printf(" TLS1_AD_USER_CANCELLED"); break;
 	case TLS1_AD_NO_RENEGOTIATION: //             100 
 		printf(" TLS1_AD_NO_RENEGOTIATION"); break;
+	default:
+		printf(" UNKNOWN CODE: %d", buff[1]); break;
+		
 	}
 }
 
