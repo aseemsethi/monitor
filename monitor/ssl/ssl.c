@@ -46,7 +46,7 @@ initConnectionToServer(sslStruct *sslP, xmlData_t* xmlData) {
     sslP->server_addr.sin_family = AF_INET;
     sslP->server_addr.sin_port = htons(xmlData->sslPort);
     if(inet_aton(xmlData->serverIP, &sslP->server_addr.sin_addr) == 0) {
-            printf("inet_aton() failed\n");
+            log_error(fp, "inet_aton() failed\n");
 			log_error(fp, "SSL ERROR: create in inet_aton"); fflush(fp);
     }
 	log_info(fp, "SSL: Connect to %s", xmlData->serverIP);
@@ -110,39 +110,39 @@ verifyCertificate(sslStruct *sslP) {
 	msgLen = GET_BE16(&buff[CERT_LEN_INDEX+1]);
 	totalCertLen = GET_BE16(&buff[CERT_LEN_INDEX+1+3]);
 	serverCertLen = GET_BE16(&buff[CERT_LEN_INDEX+1+3+3]);
-	printf("\n Pkg Len = %d, Total Cert Len = %d", msgLen, totalCertLen);
-    printf("\n Server Certificate verification, Len: %d", serverCertLen);
+	log_info(fp, "\n Pkg Len = %d, Total Cert Len = %d", msgLen, totalCertLen);
+    log_info(fp, "\n Server Certificate verification, Len: %d", serverCertLen);
 	// Parse the Server Cert
 	ptr = &buff[10];
 	X509 *cert = d2i_X509(NULL, &ptr, serverCertLen);	
 	if (cert == NULL) {
-		printf("\n d2i_X509 returns NULL for Cert verification");
+		log_info(fp, "\n d2i_X509 returns NULL for Cert verification");
 		return -1;
 	}
-	printf("\n.........Server Certificate........................");
+	log_info(fp, "\n.........Server Certificate........................");
 	subj = X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
 	issuer = X509_NAME_oneline(X509_get_issuer_name(cert), NULL, 0);
 	version = ((int)X509_get_version(cert)) + 1; // 0 indexed
-	printf("\nSubject: %s, \nIssuer: %s, \n Version: %d", 
+	log_info(fp, "\nSubject: %s, \nIssuer: %s, \n Version: %d", 
 		subj, issuer, version);
 	// Get Public Key Algorith Name
 	int pkey = OBJ_obj2nid(cert->cert_info->key->algor->algorithm);
 	if (pkey == NID_undef) {
-		printf ("\n Cert Verify: unable to find signature algo");
+		log_info (fp, "\n Cert Verify: unable to find signature algo");
 		goto clean;
 	}
 	char sigalgo[100];
 	const char * sslbuf = OBJ_nid2ln(pkey);
 	if (strlen(sslbuf) > 100) {
-		printf ("\n Cert Verify: len is greater than allocated");
+		log_info (fp, "\n Cert Verify: len is greater than allocated");
 		goto clean;
 	}
 	strncpy(sigalgo, sslbuf, 100);
-	printf(", Public Key Algorithm Algorithm: %s", sigalgo);
+	log_info(fp, ", Public Key Algorithm Algorithm: %s", sigalgo);
 	EVP_PKEY *public_key = X509_get_pubkey(cert);
 	if (pkey == NID_rsaEncryption) {
 		if (public_key == NULL) {
-			printf("\nunable to get public key from certificate");
+			log_info(fp, "\nunable to get public key from certificate");
 			return -1;
 		}
 		char *rsa_e_dec, *rsa_n_hex;
@@ -151,7 +151,7 @@ verifyCertificate(sslStruct *sslP) {
 		// by caling OPENSSL_free()
 		rsa_e_dec = BN_bn2dec(sslP->paramP->rsa_key->e); // RSA Exponent
 		rsa_n_hex = BN_bn2hex(sslP->paramP->rsa_key->n); // RSA Modulus
-		printf("\n RSA Exponent = %s, \n RSA Modulus = %s", rsa_e_dec, rsa_n_hex);
+		log_info(fp, "\n RSA Exponent = %s, \n RSA Modulus = %s", rsa_e_dec, rsa_n_hex);
 	}
 	EVP_PKEY_free(public_key);
 clean:
@@ -163,23 +163,23 @@ clean:
 	parsedLen = serverCertLen+3;
 	tmpPtr = ptr+3;
 	while (parsedLen < totalCertLen) {
-		printf("\n.........Server Certificate Chain %d.............", count++);
+		log_info(fp, "\n.........Server Certificate Chain %d.............", count++);
 		//printf("\n Len: Parsed: %d, Total: %d", parsedLen, totalCertLen);
 		verifyCertLen = GET_BE16(&ptr[1]);
-		printf("\nCert Chain Len: %d", verifyCertLen);
+		log_info(fp, "\nCert Chain Len: %d", verifyCertLen);
 		X509 *cert = d2i_X509(NULL, &tmpPtr, serverCertLen);	
 		if (cert == NULL) {
-			printf("\n d2i_X509 returns NULL for Cert verification chain");
+			log_info(fp, "\n d2i_X509 returns NULL for Cert verification chain");
 			return -1;
 		}
 		subj = X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
-		printf("\nSubject: %s", subj);
+		log_info(fp, "\nSubject: %s", subj);
 		OPENSSL_free(subj); 
 		ptr += verifyCertLen + 3; // Set ptr to point to next Cert Len field
 		tmpPtr = ptr+3;
 		parsedLen += verifyCertLen+3;
 	} // End parsing Cert Chain
-	printf("\n..................................................");
+	log_info(fp, "\n..................................................");
 }
 
 
@@ -191,14 +191,14 @@ recvCertificate (sslStruct *sslP) {
     memcpy(&(sslP->paramP->clientHandshakeMsgs[sslP->paramP->clientHandshakeMsgsIndex]),
         &(sslP->paramP->buff[0]), sslP->paramP->buffLen);
     sslP->paramP->clientHandshakeMsgsIndex += sslP->paramP->buffLen;
-    printf("\n Certificate saved bytes: %d", sslP->paramP->buffLen);
+    log_info(fp, "\n Certificate saved bytes: %d", sslP->paramP->buffLen);
 
     status = verifyCertificate(sslP);
     if (status == -1) {
-        printf("\n Certificate verification failed");
+        log_info(fp, "\n Certificate verification failed");
         return -1;
     }
-	printf("\n Certificate verification passed"); fflush (stdout);
+	log_info(fp, "\n Certificate verification passed"); fflush (stdout);
     return 0;
 }
 
@@ -208,7 +208,7 @@ int recvServerHelloDone(sslStruct *sslP) {
     memcpy(&(sslP->paramP->clientHandshakeMsgs[sslP->paramP->clientHandshakeMsgsIndex]),
         &(sslP->paramP->buff[0]), sslP->paramP->buffLen);
     sslP->paramP->clientHandshakeMsgsIndex += sslP->paramP->buffLen;
-    printf("\n ServerHelloDone saved bytes: %d", sslP->paramP->buffLen);
+    log_info(fp, "\n ServerHelloDone saved bytes: %d", sslP->paramP->buffLen);
 }
 
 recvServerHello (sslStruct *sslP) {
@@ -219,15 +219,15 @@ recvServerHello (sslStruct *sslP) {
     memcpy(&(sslP->paramP->clientHandshakeMsgs[sslP->paramP->clientHandshakeMsgsIndex]),
         &(sslP->paramP->buff[0]), sslP->paramP->buffLen);
     sslP->paramP->clientHandshakeMsgsIndex += sslP->paramP->buffLen;
-    printf("\n ServerHello saved bytes: %d", sslP->paramP->buffLen);
+    log_info(fp, "\n ServerHello saved bytes: %d", sslP->paramP->buffLen);
         
     // Get the random value from the packet for master secret
     // buff[0] points to Handshake Type - ServerHello
     // random bytes start from index 6 (including time stamp)
     memcpy(&(sslP->paramP->serverRandom[0]), &(sslP->paramP->buff[6]), 32);
-    printf("\n Server Random recvd: ");
+    log_info(fp, "\n Server Random recvd: ");
     for(i = 0; i <32; i++)
-        printf("%x ", sslP->paramP->serverRandom[i]);
+        log_info(fp, "%x ", sslP->paramP->serverRandom[i]);
 }       
 
 // buff[0] points to Alert Message, i.e. Level and Description
@@ -235,62 +235,62 @@ recvAlert (sslStruct *sslP) {
 	uchar *buff;
 
 	buff = sslP->paramP->buff;
-	printf("\n Alert !!"); fflush(stdout);
-	if (buff[0] == 1) printf(" WARNING:");
-	if (buff[0] == 2) printf(" FATAL:");
+	log_info(fp, "\n Alert !!"); fflush(stdout);
+	if (buff[0] == 1) log_info(fp, " WARNING:");
+	if (buff[0] == 2) log_info(fp, " FATAL:");
 	// save the ALERT Code for the sslTestExec to check.
 	sslP->paramP->verifyAlertCode = buff[1]; 
 	switch (buff[1]) {
 	case SSL3_AD_CLOSE_NOTIFY: //                   0      
-		printf(" SSL3_AD_CLOSE_NOTIFY"); break;
+		log_info(fp, " SSL3_AD_CLOSE_NOTIFY"); break;
 	case SSL3_AD_UNEXPECTED_MESSAGE: //            10     
-		printf(" SSL3_AD_UNEXPECTED_MESSAGE"); break;
+		log_info(fp, " SSL3_AD_UNEXPECTED_MESSAGE"); break;
 	case SSL3_AD_BAD_RECORD_MAC: //                20    
-		printf(" SSL3_AD_BAD_RECORD_MAC"); break;
+		log_info(fp, " SSL3_AD_BAD_RECORD_MAC"); break;
 	case TLS1_AD_DECRYPTION_FAILED: //             21   
-		printf(" TLS1_AD_DECRYPTION_FAILED"); break;
+		log_info(fp, " TLS1_AD_DECRYPTION_FAILED"); break;
 	case TLS1_AD_RECORD_OVERFLOW: //               22  
-		printf(" TLS1_AD_RECORD_OVERFLOW"); break;
+		log_info(fp, " TLS1_AD_RECORD_OVERFLOW"); break;
 	case SSL3_AD_DECOMPRESSION_FAILURE: //         30 
-		printf(" SSL3_AD_DECOMPRESSION_FAILURE"); break;
+		log_info(fp, " SSL3_AD_DECOMPRESSION_FAILURE"); break;
 	case SSL3_AD_HANDSHAKE_FAILURE: //             40
-		printf(" SSL3_AD_HANDSHAKE_FAILURE"); break;
+		log_info(fp, " SSL3_AD_HANDSHAKE_FAILURE"); break;
 	case SSL3_AD_NO_CERTIFICATE: //                41      
-		printf(" SSL3_AD_NO_CERTIFICATE"); break;
+		log_info(fp, " SSL3_AD_NO_CERTIFICATE"); break;
 	case SSL3_AD_BAD_CERTIFICATE: //               42     
-		printf(" SSL3_AD_BAD_CERTIFICATE"); break;
+		log_info(fp, " SSL3_AD_BAD_CERTIFICATE"); break;
 	case SSL3_AD_UNSUPPORTED_CERTIFICATE: //       43    
-		printf(" SSL3_AD_UNSUPPORTED_CERTIFICATE"); break;
+		log_info(fp, " SSL3_AD_UNSUPPORTED_CERTIFICATE"); break;
 	case SSL3_AD_CERTIFICATE_REVOKED: //           44   
-		printf(" SSL3_AD_CERTIFICATE_REVOKED"); break;
+		log_info(fp, " SSL3_AD_CERTIFICATE_REVOKED"); break;
 	case SSL3_AD_CERTIFICATE_EXPIRED: //           45  
-		printf(" SSL3_AD_CERTIFICATE_EXPIRED"); break;
+		log_info(fp, " SSL3_AD_CERTIFICATE_EXPIRED"); break;
 	case SSL3_AD_CERTIFICATE_UNKNOWN: //           46 
-		printf(" SSL3_AD_CERTIFICATE_UNKNOWN"); break;
+		log_info(fp, " SSL3_AD_CERTIFICATE_UNKNOWN"); break;
 	case SSL3_AD_ILLEGAL_PARAMETER: //             47      
-		printf(" SSL3_AD_ILLEGAL_PARAMETER"); break;
+		log_info(fp, " SSL3_AD_ILLEGAL_PARAMETER"); break;
 	case TLS1_AD_UNKNOWN_CA: //                    48     
-		printf(" TLS1_AD_UNKNOWN_CA"); break;
+		log_info(fp, " TLS1_AD_UNKNOWN_CA"); break;
 	case TLS1_AD_ACCESS_DENIED: //                 49    
-		printf(" TLS1_AD_ACCESS_DENIED"); break;
+		log_info(fp, " TLS1_AD_ACCESS_DENIED"); break;
 	case TLS1_AD_DECODE_ERROR: //                  50   
-		printf(" TLS1_AD_DECODE_ERROR"); break;
+		log_info(fp, " TLS1_AD_DECODE_ERROR"); break;
 	case TLS1_AD_DECRYPT_ERROR: //                 51  
-		printf(" TLS1_AD_DECRYPT_ERROR"); break;
+		log_info(fp, " TLS1_AD_DECRYPT_ERROR"); break;
 	case TLS1_AD_EXPORT_RESTRICTION: //            60 
-		printf(" TLS1_AD_EXPORT_RESTRICTION"); break;
+		log_info(fp, " TLS1_AD_EXPORT_RESTRICTION"); break;
 	case TLS1_AD_PROTOCOL_VERSION: //              70     
-		printf(" TLS1_AD_PROTOCOL_VERSION"); break;
+		log_info(fp, " TLS1_AD_PROTOCOL_VERSION"); break;
 	case TLS1_AD_INSUFFICIENT_SECURITY: //         71    
-		printf(" TLS1_AD_INSUFFICIENT_SECURITY"); break;
+		log_info(fp, " TLS1_AD_INSUFFICIENT_SECURITY"); break;
 	case TLS1_AD_INTERNAL_ERROR: //                80   
-		printf(" TLS1_AD_INTERNAL_ERROR"); break;
+		log_info(fp, " TLS1_AD_INTERNAL_ERROR"); break;
 	case TLS1_AD_USER_CANCELLED: //                90  
-		printf(" TLS1_AD_USER_CANCELLED"); break;
+		log_info(fp, " TLS1_AD_USER_CANCELLED"); break;
 	case TLS1_AD_NO_RENEGOTIATION: //             100 
-		printf(" TLS1_AD_NO_RENEGOTIATION"); break;
+		log_info(fp, " TLS1_AD_NO_RENEGOTIATION"); break;
 	default:
-		printf(" UNKNOWN CODE: %d", buff[1]); break;
+		log_info(fp,"  UNKNOWN CODE: %d", buff[1]); break;
 		
 	}
 }
@@ -342,7 +342,7 @@ void* recvFunction(void *arg) {
 		case application_data:
                 log_info(fp, "	<- SSL: App data"); break;
 		default:
-                printf("	<- SSL: Error pkt recvd: %d, ", buff[0]);
+                log_error(fp, "	<- SSL: Error pkt recvd: %d, ", buff[0]);
 				// We have some junk data. Throw it away
 	 		   i=recv(sslP->sock,&buff[0],5000, 0);
 				log_info(fp, "..discarding %d len data\n", i); continue;
@@ -420,7 +420,7 @@ void* sslStart(void *args) {
 	char filePath[100];
 
 	if (pthread_mutex_init(&sslP.lock, NULL) != 0) {
-		printf("\nMutex init failed\n");
+		printf("\nMutex init failed\n"); fflush(stdout);
 		perror("SSL Error:");
 		fflush(stdout);
 		return 0;

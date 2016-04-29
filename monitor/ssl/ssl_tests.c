@@ -49,7 +49,7 @@ encrypt (sslStruct *sslP, char *buff, char *encryptedBuf, int len) {
     int result;
 
     // The encrypted bufer must be of size RSA_size(rsa_key)
-    printf("\nRSA Size = %d", RSA_size(sslP->paramP->rsa_key));
+    log_info(fp, "\nRSA Size = %d", RSA_size(sslP->paramP->rsa_key));
     result = RSA_public_encrypt(len, buff, encryptedBuf,
                 sslP->paramP->rsa_key, padding);
     return result;
@@ -103,7 +103,7 @@ sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{
 	strcpy(&plainText[2], "aseem sethi's private key01234567890123456789");
 	memcpy(&(sslP->paramP->preMasterSecret[0]), &plainText[0], 48);
 	result = encrypt(sslP, &plainText[0], &encryptedBuf[0], 48);
-	printf("\n Encrypted Len = %d", result);
+	log_info(fp, "\n Encrypted Len = %d", result);
 	memcpy(&p[9], &encryptedBuf[0], result);
 	length = length + result;
 
@@ -115,7 +115,7 @@ sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{
 		&(p[5]), length-RECORD_HDR_LEN);
 	sslP->paramP->clientHandshakeMsgsIndex = 
 		sslP->paramP->clientHandshakeMsgsIndex + length-RECORD_HDR_LEN;
-	printf("\n-> Send Client Key Exchange");
+	log_info(fp, "\n-> Send Client Key Exchange");
 	sendData(sslP, buff, length);
 }
 
@@ -253,16 +253,16 @@ int verifyFailed (sslStruct *sslP, param_t *args, int verifyAlertCode) {
 		if ((verifyAlertCode != INVALID_CODE) && 
 		    (sslP->paramP->verifyAlertCode != INVALID_CODE)) {
 			if (verifyAlertCode == sslP->paramP->verifyAlertCode) {
-				printf("\nSSL: ALERT Code matches for test:%d",
+				log_info(fp, "\nSSL: ALERT Code matches for test:%d",
 					args->testId); fflush(stdout);
 				sslTestsResults[args->testId].result = PASS;
 			} else {	
-				printf("\nSSL ERROR: ALERT Code mismatch for test:%d",
+				log_info(fp, "\nSSL ERROR: ALERT Code mismatch for test:%d",
 					args->testId); fflush(stdout);
 				sslTestsResults[args->testId].result = FAIL;
 			}
 		} else {
-			printf("\nSSL: No ALERT recvd. for test:%d",
+			log_info(fp, "\nSSL: No ALERT recvd. for test:%d",
 				args->testId); fflush(stdout);
 			sslTestsResults[args->testId].result = PASS;
 		}
@@ -314,7 +314,7 @@ sslTestsDump() {
 static void signal_handler(int sig) {
 	int i;
 	if (sig == SIGUSR1) {
-		printf("\n SIGUSR1 !"); fflush(stdout);
+		log_info(fp, "\n SIGUSR1 !"); fflush(stdout);
 		sslTestsDump();
 	}
 }
