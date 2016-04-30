@@ -17,7 +17,7 @@
 
 #define PASS 1
 #define FAIL 0
-#define SSL_NUM_TESTS 6
+#define SSL_NUM_TESTS 7
 
 
 FILE *fp;
@@ -27,11 +27,15 @@ typedef struct {
 	char cveId[30];
 	int (*init_params)(sslStruct *ssl, param_t *args);
 	int (*send)(sslStruct *ssl, param_t *args);
-	int (*verify)(sslStruct *ssl, param_t *args, int verifyAlertCode);
+	int (*verify)(sslStruct *ssl, param_t *args, int pkt, int verifyAlertCode);
+	// verifyPassed - needs to get this, verifyFail - should not get this pkt
+	int firstRecvdPkt; 
 	int verifyAlertCode;
 	int (*update_stats)(sslStruct *ssl, param_t *args, char* details);
 	int (*send_again)(sslStruct *ssl, param_t *args);
-	int (*verify_again)(sslStruct *ssl, param_t *args, int verifyAlertCode);
+	int (*verify_again)(sslStruct *ssl, param_t *args, int pkt, int verifyAlertCode);
+	// verifyPassed - needs to get this, verifyFail - should not get this pkt
+	int secondRecvdPkt;
 	char details[240];
 } sslTests_t;
 
@@ -55,13 +59,181 @@ encrypt (sslStruct *sslP, char *buff, char *encryptedBuf, int len) {
     return result;
 }
 
+char* msgToString(int msg) {
+    switch (msg) {
+    case hello_request: return "hello_req";
+    case client_hello: return "client_hello";
+    case server_hello: return "server_hello";
+    case certificate: return "certificate";
+    case server_key_exchange: return "server_key_xchange";
+    case certificate_request: return "certificate_req";
+    case server_hello_done: return "server_hello_done";
+    case certificate_verify: return "server_verify";
+    case client_key_exchange: return "client_key_xchange";
+    case finished: return "finished";
+    }
+}
+
+logRecvdPkts(sslStruct *sslP) {
+	int i;
+    for (i=0;i<32;i++) {
+        if (sslP->paramP->handshakeResp & (1<<i)) {
+            log_info(fp, "%s ", msgToString(i)); fflush(fp);
+        }
+    }
+}
+
+
+sendClientFinished(sslStruct *sslP, param_t *args) {
+	uchar buff[1024];
+	uchar plainText[256];
+	uchar verifyData[256];
+	uchar *p = &buff[0];
+	ushort length = 0;
+	struct timeval tv;
+	time_t curtime;
+	uchar digest[16];
+	uchar sha1Hash[20];
+	int result;
+	int i;
+
+	// Record Hdr (Type, Version, Length)
+	p[0] = handshake; //0x16
+	p[1] = SSL_VERSION_1;
+	p[2] = SSL_VERSION_2;
+	PUT_BE16(&p[3], 0); // **** fill in this later at this point
+	// current length, used by sendData, and also in pkt
+	length = RECORD_HDR_LEN;
+
+	// Note that we have done 5 bytes by now, which should be substracted
+	// from the pkt length for the RecordProtocol.
+
+	p[5] = finished; // 20
+	p[6] = 0;  // 3rd MSByte of the Length, usualy 0
+	// length of Handshake pkt following length field = 1 byte
+	PUT_BE16(&p[7], 0); // **** fill in this later at this point
+	length = length + 4;
+
+	// Calculate Master Secret
+	// TLS1.0+
+	// Function call - tls1_prf()
+	// master_secret = PRF(pre_master_secret, "master secret", 
+	// 				ClientHello.random + ServerHello.random)
+	// Note: randoms are 32 bytes (include the timestamps)
+	// sslC->masterSecret = PRF (sslC->preMasterSecret, "master secret", 
+	// sslC->random, sslC->serverRandom)
+	
+	// SSLv3
+	// Function call - ssl3_generate_master_secret()
+	// master_secret = 
+	// 	MD5(pre_master_secret + SHA1('A' + pre_master_secret + randbytes)) +
+	// 	MD5(pre_master_secret + SHA1('BB' + pre_master_secret + randbytes)) +
+	// 	MD5(pre_master_secret + SHA1('CCC' + pre_master_secret + randbytes)) +
+	//
+	// 	Function ssl3_generate_master_secret taken from ssl/s3_enc.c called from
+	// 	ssl/s3_clnt.c during sending of CLIENT_KEY_EXCHANGE pkt to server via
+	// 	the vector generate_master_secret()
+	//
+	{
+	uchar n, dest[48];
+	n = ssl3_generate_master_secret(sslP,
+		dest, sslP->paramP->preMasterSecret, 48);
+	printf("Len of Key Block = %d", n);
+	memcpy(sslP->paramP->masterSecret, dest, 48);
+	};
+	
+	// Calculate verify_data for Finished Msg - for SSLv3
+	// Sender: client = 0x434C4E54; server = 0x53525652
+	// md5_hash[16] = MD5(masterSecret + pad2 + 
+	// 			      MD5(handshakeMsgs + Sender + masterSecret + pad1));
+	// sha_hash[20] = SHA(masterSecret + pad2 + 
+	// 			      SHA(handshakeMsgs + Sender + masterSecret + pad1));
+	// m = MD5(sslC->handshakeMsgs)
+	//
+	uchar out[36];
+	sslP->paramP->handshakeMsgs[sslP->paramP->handshakeMsgsIndex] = '\0';
+	sslP->paramP->clientHandshakeMsgs[sslP->paramP->clientHandshakeMsgsIndex] = '\0';
+	MD5_CTX md5_ctx;
+	MD5_Init(&md5_ctx);
+	MD5_Update(&md5_ctx, sslP->paramP->clientHandshakeMsgs, 
+			strlen(sslP->paramP->clientHandshakeMsgs));
+	printf("\n Length of Handshake Msgs sent by Client: %d", 
+		sslP->paramP->clientHandshakeMsgsIndex);
+
+	SHA_CTX sha1_ctx;
+	SHA1_Init(&sha1_ctx);
+	SHA1_Update(&sha1_ctx, sslP->paramP->clientHandshakeMsgs, 
+			strlen(sslP->paramP->clientHandshakeMsgs));
+	sslGenerateFinishedHash(&md5_ctx, &sha1_ctx, 
+					sslP->paramP->masterSecret, out);
+	memcpy(&p[9], &out[0], 36);
+	
+	length += 36;
+	// Finally fill in the lengths of Record and Handshake headers
+	PUT_BE16(&p[3], length-RECORD_HDR_LEN);
+	PUT_BE16(&p[7], length-RECORD_HDR_LEN-4);
+	
+	// Openssl data structure for encrypt/decrypt pointers
+	// Called after sending CHANGE_CIPHER pkt to server
+	// Function vectors set in ssl/s3_lib.c
+	// ssl3_enc_method { 
+	//   enc = ssl3_enc
+	//   mac = n_ssl3_mac
+	//   setup_key_block = ssl3_setup_key_block
+	//   generate_master_secret = ssl3_generate_master_secret
+	//   ...
+	//   final_finish_mac = ssl3_final_finish_mac
+	//   }
+	//
+	// Need to copy 2 functions from OpenSSL to generate all keys
+	// ssl3_setup_key_block => ssl3_generate_key_block (ssl/s3_enc.c)
+	// Need ssl3_enc()
+	// Need to call ssl3_enc() just before sending the data out to the 
+	// other side 
+	printf("\n-> Send Client Finished");
+	sendData(sslP, buff, length);
+}
+
+sendChangeCipherSpec(sslStruct *sslP, param_t *args) {
+    uchar buff[1024];
+    uchar *p = &buff[0];
+    ushort length = 0;
+    struct timeval tv;
+    time_t curtime;
+    int i;
+
+    // Record Hdr (Type, Version, Length)
+    p[0] = change_cipher_spec; //0x14
+    p[1] = SSL_VERSION_1;
+    p[2] = SSL_VERSION_2;
+    PUT_BE16(&p[3], 1); // This pkt is only 1 byte in length
+    length = RECORD_HDR_LEN;
+
+    // Note that we have done 5 bytes by now, which should be substracted
+    // from the pkt length for the RecordProtocol.
+    p[5] = 1; // change ciper spec = 1
+    length = length + 1;
+
+    printf("\n-> Send Change Cipher Spec");
+    sendData(sslP, buff, length);
+}
+
 sendServerKeyExchange (sslStruct *sslP, param_t *args) 	{ 
 	// server_key_exchange = 12, client_key_exchange = 16
 	args->hello_value = server_key_exchange; 
-	sendClientKeyExchange(sslP, args);
+	sendClientKeyExchangeFinal(sslP, args);
+}
+sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{ 
+	// server_key_exchange = 12, client_key_exchange = 16
+	args->hello_value = client_key_exchange; 
+	sendClientKeyExchangeFinal(sslP, args);
+    sendChangeCipherSpec(sslP, args);
+	sleep(1);
+    sendClientFinished(sslP, args);
+
 }
 
-sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{ 
+sendClientKeyExchangeFinal (sslStruct *sslP, param_t *args) 	{ 
 	uchar buff[1024];
 	uchar plainText[256];
 	uchar encryptedBuf[256];
@@ -72,8 +244,6 @@ sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{
 	int status, result;
 	int i;
 
-	// First parse ServerHelloDone
-	status = recvServerHelloDone(sslP);
 	// Record Hdr (Type, Version, Length)
 	p[0] = handshake; //0x16
 	// TLS ver 1.2 uses version value 3.3
@@ -106,7 +276,7 @@ sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{
 	plainText[1] = SSL_VERSION_2;
 	// Now fill in the secret key of 46 Bytes
 	// Also save in sslP struct to create master secret
-	strcpy(&plainText[2], "aseem sethi's private key01234567890123456789");
+	strcpy(&plainText[2], "1234567890123456789012345678901234567890123456");
 	memcpy(&(sslP->paramP->preMasterSecret[0]), &plainText[0], 48);
 	result = encrypt(sslP, &plainText[0], &encryptedBuf[0], 48);
 	log_info(fp, "\n Encrypted Len = %d", result);
@@ -126,7 +296,7 @@ sendClientKeyExchange (sslStruct *sslP, param_t *args) 	{
 }
 
 // 2nd Phase of Testing - post ClientHello/ServerHello
-int verifyAgainNull (sslStruct *sslP, param_t *args, int verifyAlertCode) 	{ 
+int verifyAgainNull (sslStruct *sslP, param_t *args, int pkt, int verifyAlertCode) 	{ 
 	return 0;
 }
 int sendAgainNull (sslStruct *sslP, param_t *args) 	{ 
@@ -193,6 +363,10 @@ int initParams (sslStruct *sslP, param_t *args) 	{
 	args->cipherLen = 4;
 }
 
+/*
+ * Version used is 3.1 (TLS 1.0)
+ * https://tools.ietf.org/html/rfc2246
+ */
 int sendHello (sslStruct *sslP, param_t *args) 	{ 
 	uchar buff[1024];
 	uchar *p = &buff[0];
@@ -248,12 +422,15 @@ int sendHello (sslStruct *sslP, param_t *args) 	{
 	sendData(sslP, buff, length);
 }
 
-int verifyFailed (sslStruct *sslP, param_t *args, int verifyAlertCode) { 
-	if (sslP->paramP->handshakeResp & (0x01 <<server_hello)) {
-		log_debug(fp, "Server Hello Recvd."); fflush(fp);
+int verifyFailed (sslStruct *sslP, param_t *args, int pkt, int verifyAlertCode) { 
+	if (sslP->paramP->handshakeResp & (0x01 << pkt)) {
+		log_debug(fp, "Pkt Recvd.:%d, Recvd:%x", 
+				pkt, sslP->paramP->handshakeResp); fflush(fp);
 		sslTestsResults[args->testId].result = FAIL;
 	} else {
-		log_debug(fp, "Server Hello NOT Recvd. %x", sslP->paramP->handshakeResp); fflush(fp);
+		log_debug(fp, "Pkt NOT Recvd.:%s, Recvd:%x", 
+				msgToString(pkt), sslP->paramP->handshakeResp); fflush(fp);
+		logRecvdPkts(sslP);  // For logging only
 		// In veriFailed, we check if there was an ALERT expected. and if it 
 		// matches the recevied ALERT msg in the listen thread.
 		if ((verifyAlertCode != INVALID_CODE) && 
@@ -274,12 +451,12 @@ int verifyFailed (sslStruct *sslP, param_t *args, int verifyAlertCode) {
 		}
 	}
 }
-int verifyPassed (sslStruct *sslP, param_t *args, int verifyAlertCode) { 
-	if (sslP->paramP->handshakeResp & (0x01 <<server_hello)) {
-		log_debug(fp, "Server Hello Recvd."); fflush(fp);
+int verifyPassed (sslStruct *sslP, param_t *args, int pkt, int verifyAlertCode) { 
+	if (sslP->paramP->handshakeResp & (0x01 << pkt)) {
+		log_debug(fp, "Pkt Recvd.%d", pkt); fflush(fp);
 		sslTestsResults[args->testId].result = PASS;
 	} else {
-		log_debug(fp, "Server Hello NOT Recvd. %x", sslP->paramP->handshakeResp); fflush(fp);
+		log_debug(fp, "Pkt NOT Recvd. %d", pkt); fflush(fp);
 		sslTestsResults[args->testId].result = FAIL;
 	}
 }
@@ -372,7 +549,7 @@ sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
 		// TBD: For now, Sleep for 0.8 Sec, giving a chance to recvThread
 		signalRecvThread(sslP);
 
-		sslTests[i].verify(sslP, sslP->paramP, sslTests[i].verifyAlertCode);
+		sslTests[i].verify(sslP, sslP->paramP, sslTests[i].firstRecvdPkt, sslTests[i].verifyAlertCode);
 		if (sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details) 
 					== FAIL) {
 			log_error(sslP->fp, "\nSSL: TestsExec: Failed Test %d", i);
@@ -383,7 +560,7 @@ sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
 			// 2nd State, after ClientHello/ServerHello
 			sslTests[i].send_again(sslP, sslP->paramP);
 			signalRecvThread(sslP);
-			sslTests[i].verify_again(sslP, sslP->paramP, sslTests[i].verifyAlertCode);
+			sslTests[i].verify_again(sslP, sslP->paramP, sslTests[i].secondRecvdPkt, sslTests[i].verifyAlertCode);
 			sslTests[i].update_stats(sslP, sslP->paramP, sslTests[i].details); 
 		}
 /* 

@@ -14,8 +14,9 @@
 
 #define INTERFACE "eth0"
 #define SSL_PORT 4433
+// RFC SSL 3.0 https://tools.ietf.org/html/rfc6101
 #define SSL_VERSION_1 3
-#define SSL_VERSION_2 1
+#define SSL_VERSION_2 0
 #define RECORD_HDR_LEN 5
 #define SSL_INNER_HDR_LEN 4
 
