@@ -25,16 +25,21 @@ void* recvFunction(void *arg);
 
 typedef struct {
 	char cveId[30];
+	// 1st packet exchange
 	int (*init_params)(sslStruct *ssl, param_t *args);
 	int (*send)(sslStruct *ssl, param_t *args);
 	int (*verify)(sslStruct *ssl, param_t *args, int pkt, int verifyAlertCode);
-	// verifyPassed - needs to get this, verifyFail - should not get this pkt
+	// verifyPassed - needs to get this pkt to pass, 
+	// verifyFailied - should not get this pkt
 	int firstRecvdPkt; 
+	// if verifyFailed, then if this AlertCode is set to non INVALID, the ALERT
+	// recvd should match this code, else test fails
 	int verifyAlertCode;
 	int (*update_stats)(sslStruct *ssl, param_t *args, char* details);
+	
+	// 2nd packet exchange
 	int (*send_again)(sslStruct *ssl, param_t *args);
 	int (*verify_again)(sslStruct *ssl, param_t *args, int pkt, int verifyAlertCode);
-	// verifyPassed - needs to get this, verifyFail - should not get this pkt
 	int secondRecvdPkt;
 	char details[240];
 } sslTests_t;
