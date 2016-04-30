@@ -13,7 +13,7 @@
 #include <sys/signal.h>
 #include "ssl.h"
 #include "../common/log.h"
-#include "util.h"
+#include "../common/util.h"
 
 #define PASS 1
 #define FAIL 0

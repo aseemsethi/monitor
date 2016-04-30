@@ -2,6 +2,7 @@
 mont_client
 mont_server
 mont_cust
+monitor/xmlparser/libxmlparse.a
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

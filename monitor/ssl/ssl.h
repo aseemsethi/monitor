@@ -1,5 +1,5 @@
 #include <linux/if_packet.h> //sll
-#include <sys/ioctl.h>
+#include <sys/ioctl.h> // SIOCGIFADDR
 #include <net/if.h>
 /* For Parsing Certificates */
 #include <openssl/x509v3.h>

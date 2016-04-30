@@ -9,7 +9,7 @@
 #include <netinet/ip_icmp.h>
 #include <pthread.h>
 #include "../xmlparser/xmlparse.h"
-#include "util.h"
+#include "../common/util.h"
 #include "ssl.h"
 #include "../common/log.h"
 

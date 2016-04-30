@@ -8,7 +8,8 @@ MONT = mont_cust
 CFLAGS = -g
 
 csrc = $(wildcard ssl/*.c)  \
-	$(wildcard common/*.c) 
+	$(wildcard common/*.c)  \
+	$(wildcard ssl_perf/*.c) 
 
 obj = $(csrc:.c=.o)
 
@@ -21,7 +22,7 @@ $(MONT): $(obj)
 	$(CXX) -g -o $@ $^ $(LDFLAGS)
 
 clean:
-	$(RM) core* ssl/*.o mont_cust
+	$(RM) core* ssl/*.o ssl_perf/*.o mont_cust
 
 install:
 	cp $(MONT) ${INSTDIR}

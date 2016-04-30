@@ -11,15 +11,27 @@
 #include "log.h"
 
 FILE *fmont;
-pthread_t sslPID;
-extern pingPid, ping_seq, ping_lost;
+pthread_t sslPID, sslPerfPID;
 
 
 xmlData_t* parseConfig(char*, FILE *flog);
-void* pingStart(void *args);
 void* sslStart(void *args);
+void* sslPerfStart(void *args);
 
-startSslThread(xmlData_t* xmlData) {
+startSslPerfThread (xmlData_t* xmlData) {
+	struct stat st;
+	char filePath[100];
+	
+	// Create SSL thread
+	log_debug(fmont, "CUST: Create SSL thread.."); fflush(fmont);
+	if (pthread_create(&sslPerfPID, NULL, sslPerfStart, (void*)xmlData)) {
+		log_error(fmont, "Error creating SSL Perf Thread"); fflush(fmont);
+		exit(1);
+	}
+	fflush(fmont);
+}
+
+startSslThread (xmlData_t* xmlData) {
 	struct stat st;
 	char filePath[100];
 	
@@ -78,16 +90,18 @@ main(int argc, char *argv[]) {
 		fflush(fmont); return;
 	}
 	if(strcmp(argv[2], "ssl") == 0) {
-		log_info(fmont, "RPC has requested SSL Monitoring");
+		// mont_cust 100 ssl
+		log_info(fmont, "SSL Functional Testing..");
 		startSslThread(xmlData);
-	} else {
-		log_info(fmont, "RPC has NOT requested SSL Monitoring");
+	} else if(strcmp(argv[2], "ssl_perf") == 0) {
+		// mont_cust 100 ssl_perf
+		log_info(fmont, "SSL Performance Testing..");
+		startSslPerfThread(xmlData);
 	}
 	fflush(fmont);
 
 	// TBD : Start CLI parser thread here, vs sleeping
 	while(1) {
-		sleep(2);
-		fflush(stdout);
+		sleep(5);
 	}
 }
