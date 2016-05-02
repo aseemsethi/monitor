@@ -26,7 +26,7 @@
 #define SSL_PORT 4433
 int getSelfIP();
 FILE *fp;   
-FILE *fsslStats;
+FILE *fsslPerfStats;
 int id = 0;  // stores the id of each sslPf struct allocated
 
 typedef struct {
@@ -38,6 +38,8 @@ typedef struct {
     int sessionID;
 
     char selfIP[INET_ADDRSTRLEN];
+	SSL_CTX *ctx;
+	SSL *ssl;
         
     // Unit under test
     struct sockaddr_in server_addr;
@@ -46,29 +48,42 @@ typedef struct {
 } sslPerfStruct_t;
 sslPerfStruct_t *sslPfQ[3000];
 
-sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
-  BIO              *certbio = NULL;
-  BIO               *outbio = NULL;
-  X509                *cert = NULL;
-  X509_NAME       *certname = NULL;
-  const SSL_METHOD *method;
-  SSL_CTX *ctx;
-  SSL *ssl;
-  int server = 0;
-  int ret, i;
+sslPerfGetCertInfo (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+	X509                *cert = NULL;
+	X509_NAME       *certname = NULL;
 
   /* ---------------------------------------------------------- *
-   * These function calls initialize openssl for correct work.  *
+   * Get the remote certificate into the X509 structure         *
    * ---------------------------------------------------------- */
-  OpenSSL_add_all_algorithms();
-  ERR_load_BIO_strings();
-  ERR_load_crypto_strings();
-  SSL_load_error_strings();
+  cert = SSL_get_peer_certificate(sslPf->ssl);
+  if (cert == NULL)
+    log_info(fp, "Error: Could not get a certificate from: %s", sslPf->selfIP);
+  else
+    log_info(fp, "Retrieved the sslPf.selfIP's certificate from: %s", sslPf->selfIP);
+
+  /* ---------------------------------------------------------- *
+   * extract various certificate information                    *
+   * -----------------------------------------------------------*/
+  certname = X509_NAME_new();
+  certname = X509_get_subject_name(cert);
+
+  /* ---------------------------------------------------------- *
+   * display the cert subject here                              *
+   * -----------------------------------------------------------*/
+  log_info(fp, "Displaying the certificate subject data:\n");
+  X509_NAME_print_ex_fp(fp, certname, 0, 0);
+  fflush(fp);
+  X509_free(cert);
+}
+
+sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+  BIO               *outbio = NULL;
+  const SSL_METHOD *method;
+  int ret, i;
 
   /* ---------------------------------------------------------- *
    * Create the Input/Output BIO's.                             *
    * ---------------------------------------------------------- */
-  certbio = BIO_new(BIO_s_file());
   outbio  = BIO_new_fp(stdout, BIO_NOCLOSE);
 
   /* ---------------------------------------------------------- *
@@ -85,68 +100,41 @@ sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
   /* ---------------------------------------------------------- *
    * Try to create a new SSL context                            *
    * ---------------------------------------------------------- */
-  if ( (ctx = SSL_CTX_new(method)) == NULL)
+  if ( (sslPf->ctx = SSL_CTX_new(method)) == NULL)
     BIO_printf(outbio, "Unable to create a new SSL context structure.\n");
 
   /* ---------------------------------------------------------- *
    * Disabling SSLv2 will leave v3 and TSLv1 for negotiation    *
    * ---------------------------------------------------------- */
-  SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+  SSL_CTX_set_options(sslPf->ctx, SSL_OP_NO_SSLv2);
 
   /* ---------------------------------------------------------- *
    * Create new SSL connection state object                     *
    * ---------------------------------------------------------- */
-  ssl = SSL_new(ctx);
-
-  /* ---------------------------------------------------------- *
-   * Make the underlying TCP socket connection                  *
-   * ---------------------------------------------------------- */
-  server = sslPf->sock;
+  sslPf->ssl = SSL_new(sslPf->ctx);
 
   /* ---------------------------------------------------------- *
    * Attach the SSL session to the socket descriptor            *
    * ---------------------------------------------------------- */
-  SSL_set_fd(ssl, server);
+  SSL_set_fd(sslPf->ssl, sslPf->sock);
 
   /* ---------------------------------------------------------- *
    * Try to SSL-connect here, returns 1 for success             *
    * ---------------------------------------------------------- */
-  if ( SSL_connect(ssl) != 1 )
+  if ( SSL_connect(sslPf->ssl) != 1 )
     BIO_printf(outbio, "Error: Could not build a SSL session to: %s.\n", sslPf->selfIP);
   else
     BIO_printf(outbio, "Successfully enabled SSL/TLS session to: %s.\n", sslPf->selfIP);
 
-  /* ---------------------------------------------------------- *
-   * Get the remote certificate into the X509 structure         *
-   * ---------------------------------------------------------- */
-  cert = SSL_get_peer_certificate(ssl);
-  if (cert == NULL)
-    BIO_printf(outbio, "Error: Could not get a certificate from: %s.\n", sslPf->selfIP);
-  else
-    BIO_printf(outbio, "Retrieved the sslPf.selfIP's certificate from: %s.\n", sslPf->selfIP);
 
-  /* ---------------------------------------------------------- *
-   * extract various certificate information                    *
-   * -----------------------------------------------------------*/
-  certname = X509_NAME_new();
-  certname = X509_get_subject_name(cert);
-
-  /* ---------------------------------------------------------- *
-   * display the cert subject here                              *
-   * -----------------------------------------------------------*/
-  BIO_printf(outbio, "Displaying the certificate subject data:\n");
-  X509_NAME_print_ex(outbio, certname, 0, 0);
-  BIO_printf(outbio, "\n");
-
-  /* ---------------------------------------------------------- *
-   * Free the structures we don't need anymore                  *
-   * -----------------------------------------------------------*/
-  SSL_free(ssl);
-  close(server);
-  X509_free(cert);
-  SSL_CTX_free(ctx);
-  BIO_printf(outbio, "Finished SSL/TLS connection with server: %s.\n", sslPf->selfIP);
+  log_info(fsslPerfStats, "SSL: Connect to %s with sock: %d, sslId: %d - Pass", 
+			xmlData->serverIP, sslPf->sock, sslPf->id);
+  fflush(fsslPerfStats);
   return(0);
+}
+
+sslPerfFreeConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+	SSL_free(sslPf->ssl); close(sslPf->sock); SSL_CTX_free(sslPf->ctx);
 }
 
 sslPerfCreateConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
@@ -168,8 +156,8 @@ sslPerfCreateConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
     if(connect(sslPf->sock, (struct sockaddr *)&sslPf->server_addr,
                 sizeof(struct sockaddr)) == -1) {
         log_error(fp, "SSL ERROR: create connecting to server"); fflush(fp);
-        log_error(fsslStats, "SSL ERROR: create connecting to server");
-        fflush(fsslStats);
+        log_error(fsslPerfStats, "SSL ERROR: create connecting to server");
+        fflush(fsslPerfStats);
         perror("Connect");
         exit(1);
     }
@@ -182,6 +170,14 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 	sslPerfStruct_t *sslPf;
 	int i;
 
+	/* ---------------------------------------------------------- *
+	 * These function calls initialize openssl for correct work.  *
+ 	* ---------------------------------------------------------- */
+	OpenSSL_add_all_algorithms();
+	ERR_load_BIO_strings();
+	ERR_load_crypto_strings();
+	SSL_load_error_strings();
+
 	for (i = 0; i < xmlData->sslPerSec; i++) {
 		sslPf = malloc(sizeof(sslPerfStruct_t));
 		if (sslPf == NULL) {
@@ -193,6 +189,8 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 		sslPfQ[id] = sslPf; // save the sslPf pointer for stats etc
 		sslPerfCreateConn(sslPf, xmlData); // updates the sock in sslPf
 		sslConnectToServer(sslPf, xmlData); // SSL Connect to Server using sslPf->sock
+		sslPerfGetCertInfo(sslPf, xmlData); 
+		sslPerfFreeConn(sslPf, xmlData); 
 	}
 }
 
@@ -233,7 +231,7 @@ void* sslPerfStart(void *args) {
     sprintf(filePath, "/var/monT/");
     sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
     sprintf(&filePath[strlen(filePath)], "/ssl_perf_stats");
-    fsslStats = fopen(filePath, "a");
+    fsslPerfStats = fopen(filePath, "a");
 
     fprintf(fp, "\nSSL Performance Tests started, Conn/Sec: %d", xmlData->sslPerSec);
 	fflush(fp);

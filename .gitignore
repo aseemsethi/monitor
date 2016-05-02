@@ -1,4 +1,5 @@
 *.[ao]
+core.*
 mont_client
 mont_server
 mont_cust

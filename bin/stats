@@ -11,5 +11,6 @@ do
     echo "Log file for $var"
     xterm -bg ${colors[i]} -T "PING $var" -e "tail -f /var/monT/$var/ping_stats"&
     xterm -bg ${colors[i]} -T "SSL $var" -e "tail -f /var/monT/$var/ssl_stats"&
+    xterm -bg ${colors[i]} -T "SSL PERF $var" -e "tail -f /var/monT/$var/ssl_perf_stats"&
   fi
 done
