@@ -25,19 +25,18 @@
 #define INTERFACE "eth0"
 #define SSL_PORT 4433
 int getSelfIP();
-FILE *fp;
+FILE *fp;   
+FILE *fsslStats;
+int id = 0;  // stores the id of each sslPf struct allocated
 
 typedef struct {
-    // Set before every test
-    int testId;
+    int id;
 
     // Values that the program modifies
     int version_1;
     int version_2;
     int sessionID;
 
-    FILE *fp;   
-    FILE *fsslStats;
     char selfIP[INET_ADDRSTRLEN];
         
     // Unit under test
@@ -45,11 +44,9 @@ typedef struct {
     struct sockaddr_ll sll;
     int sock;
 } sslPerfStruct_t;
-
-sslPerfStruct_t sslPf;
+sslPerfStruct_t *sslPfQ[3000];
 
 sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
-  char           dest_url[] = "https://www.hp.com";
   BIO              *certbio = NULL;
   BIO               *outbio = NULL;
   X509                *cert = NULL;
@@ -115,18 +112,18 @@ sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
    * Try to SSL-connect here, returns 1 for success             *
    * ---------------------------------------------------------- */
   if ( SSL_connect(ssl) != 1 )
-    BIO_printf(outbio, "Error: Could not build a SSL session to: %s.\n", dest_url);
+    BIO_printf(outbio, "Error: Could not build a SSL session to: %s.\n", sslPf->selfIP);
   else
-    BIO_printf(outbio, "Successfully enabled SSL/TLS session to: %s.\n", dest_url);
+    BIO_printf(outbio, "Successfully enabled SSL/TLS session to: %s.\n", sslPf->selfIP);
 
   /* ---------------------------------------------------------- *
    * Get the remote certificate into the X509 structure         *
    * ---------------------------------------------------------- */
   cert = SSL_get_peer_certificate(ssl);
   if (cert == NULL)
-    BIO_printf(outbio, "Error: Could not get a certificate from: %s.\n", dest_url);
+    BIO_printf(outbio, "Error: Could not get a certificate from: %s.\n", sslPf->selfIP);
   else
-    BIO_printf(outbio, "Retrieved the server's certificate from: %s.\n", dest_url);
+    BIO_printf(outbio, "Retrieved the sslPf.selfIP's certificate from: %s.\n", sslPf->selfIP);
 
   /* ---------------------------------------------------------- *
    * extract various certificate information                    *
@@ -148,11 +145,11 @@ sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
   close(server);
   X509_free(cert);
   SSL_CTX_free(ctx);
-  BIO_printf(outbio, "Finished SSL/TLS connection with server: %s.\n", dest_url);
+  BIO_printf(outbio, "Finished SSL/TLS connection with server: %s.\n", sslPf->selfIP);
   return(0);
 }
 
-sslPerfTestsExec(sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+sslPerfCreateConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
     struct sockaddr_in;
     
     if((sslPf->sock=socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -166,20 +163,37 @@ sslPerfTestsExec(sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
             log_error(fp, "inet_aton() failed\n");
             log_error(fp, "SSL ERROR: create in inet_aton"); fflush(fp);
     }
-    log_info(fp, "SSL: Connect to %s", xmlData->serverIP);
+    log_info(fp, "SSL: Connect to %s with sock: %d, sslId: %d", 
+			xmlData->serverIP, sslPf->sock, sslPf->id);
     if(connect(sslPf->sock, (struct sockaddr *)&sslPf->server_addr,
                 sizeof(struct sockaddr)) == -1) {
         log_error(fp, "SSL ERROR: create connecting to server"); fflush(fp);
-        log_error(sslPf->fsslStats, "SSL ERROR: create connecting to server");
-        fflush(sslPf->fsslStats);
+        log_error(fsslStats, "SSL ERROR: create connecting to server");
+        fflush(fsslStats);
         perror("Connect");
         exit(1);
     }
     log_info(fp, "TCP connection created to %s, sock:%d",
         xmlData->serverIP, sslPf->sock);
-	// SSL Connect to Server
-	sslConnectToServer(sslPf, xmlData);
-    fflush(stdout);
+	fflush(fp);
+}
+
+sslPerfTestsExec (xmlData_t* xmlData) {
+	sslPerfStruct_t *sslPf;
+	int i;
+
+	for (i = 0; i < xmlData->sslPerSec; i++) {
+		sslPf = malloc(sizeof(sslPerfStruct_t));
+		if (sslPf == NULL) {
+			printf("\n Malloc failure at sslPerfStruct malloc"); exit(1);
+		}
+    	getOwnIP(sslPf->selfIP);
+    	log_info(fp, "SSL: SelfIP: %s", sslPf->selfIP); fflush(fp);
+		sslPf->id = id++;
+		sslPfQ[id] = sslPf; // save the sslPf pointer for stats etc
+		sslPerfCreateConn(sslPf, xmlData); // updates the sock in sslPf
+		sslConnectToServer(sslPf, xmlData); // SSL Connect to Server using sslPf->sock
+	}
 }
 
 int getOwnIP(char *ip) {
@@ -219,13 +233,11 @@ void* sslPerfStart(void *args) {
     sprintf(filePath, "/var/monT/");
     sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
     sprintf(&filePath[strlen(filePath)], "/ssl_perf_stats");
-    sslPf.fsslStats = fopen(filePath, "a");
+    fsslStats = fopen(filePath, "a");
 
-    fprintf(fp, "\nSSL Performance Tests started"); fflush(fp);
-    getOwnIP(sslPf.selfIP);
-    log_info(fp, "SSL: SelfIP: %s", sslPf.selfIP); fflush(fp);
-    sslPf.fp = fp;
-    sslPerfTestsExec(&sslPf, xmlData);
+    fprintf(fp, "\nSSL Performance Tests started, Conn/Sec: %d", xmlData->sslPerSec);
+	fflush(fp);
+    sslPerfTestsExec(xmlData);
 
     while(1) {
         sleep(2);

@@ -32,6 +32,11 @@ static void XMLCALL charData (void *userData, const XML_Char *s, int len) {
 		xmlData->sslPort = strtol(s, NULL, 0);
 		log_debug(flog_g, "Config: sslPort: %d", xmlData->sslPort);
 		break;
+	case SSL_PERSEC:
+		xmlData->state = START;
+		xmlData->sslPerSec = strtol(s, NULL, 0);
+		log_debug(flog_g, "Config: sslPerSec: %d", xmlData->sslPerSec);
+		break;
 	}
 	fflush(flog_g);
 }
@@ -60,6 +65,7 @@ static void XMLCALL start (void *userData, const char *el, const char **attr) {
 	else if(strcmp(el, "pingTimer") == 0) xmlData->state = PING;
 	else if(strcmp(el, "pingDuration") == 0) xmlData->state = PING_DURATION;
 	else if(strcmp(el, "sslPort") == 0) xmlData->state = SSL_PORT;
+	else if(strcmp(el, "sslPerSec") == 0) xmlData->state = SSL_PERSEC;
 	else xmlData->state = START;
 }
 
@@ -113,8 +119,8 @@ xmlData_t* parseConfig(char* id, FILE *flog)
 	if (XML_Parse(p, buff, strlen(buff), XML_TRUE) == XML_STATUS_ERROR) {
 		log_error(flog,"Parser Error: %s", XML_ErrorString(XML_GetErrorCode(p)));
 	}
-	log_debug(flog,"**Customer Config: ID:%d, Server: %s, PingTimer: %d, PingDuration: %d, sslPort:%d", 
-	xmlData->custID, xmlData->serverIP, xmlData->pingTimer, xmlData->pingDuration, xmlData->sslPort);
+	log_debug(flog,"**Customer Config: ID:%d, Server: %s, PingTimer: %d, PingDuration: %d, sslPort:%d, sslPerSec:%d", 
+	xmlData->custID, xmlData->serverIP, xmlData->pingTimer, xmlData->pingDuration, xmlData->sslPort, xmlData->sslPerSec);
 	fclose(fp);
 	// TBD: This crashes the parser. Need to look into this.
 	XML_ParserFree(p);

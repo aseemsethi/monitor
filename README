@@ -4,12 +4,13 @@ One of the things that can be tested is SSL. There are many Assessment Tools tod
 
 A list of cve ids is maintained at: https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=openssl
 
-The Monitor Application is a single binary called "mont_cust". This is spawned as:
- ./mont_cust ssl 100
+The Monitor Application is a single binary called "mont_cust". This is spawned as follows :
+ For SSL Function Test: ./mont_cust ssl 100
+ For SSL Performance Test: ./mont_cust ssl_perf 100
 
 The SSL Test Process executes all tests, and write:
-- log file in /var/monT/<custID> - ssl_logs, 
-- stat  file in /var/monT/<custID> - ssl_stats, 
+- log file in /var/monT/<custID> - ssl_logs, ssl_perf_logs, 
+- stat  file in /var/monT/<custID> - ssl_stats, ssl_perf_stats, 
 
 Example of Config on /var/monT/100/config.xml
 

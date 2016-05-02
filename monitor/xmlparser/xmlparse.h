@@ -11,6 +11,7 @@ typedef enum {
     PING,
     PING_DURATION,
 	SSL_PORT,
+	SSL_PERSEC,
 } state_p;
 
 typedef struct {
@@ -24,5 +25,6 @@ typedef struct {
 
 	// SSL Params
 	int sslPort;
+    int sslPerSec;
 } xmlData_t;
 
