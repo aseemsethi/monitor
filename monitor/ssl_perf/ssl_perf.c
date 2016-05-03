@@ -109,7 +109,7 @@ sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
    * Attach the SSL session to the socket descriptor            *
    * ---------------------------------------------------------- */
   SSL_set_fd(sslPf->ssl, sslPf->sock);
-  printf("\nSSL: %x, sock:%d", sslPf->ssl, sslPf->sock); fflush(stdout);
+  //printf("\nSSL: %x, sock:%d", sslPf->ssl, sslPf->sock); fflush(stdout);
 
   /* ---------------------------------------------------------- *
    * Try to SSL-connect here, returns 1 for success             *
@@ -166,7 +166,7 @@ sslPerfCreateConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
 
 sslPerfTestsExec (xmlData_t* xmlData) {
 	sslPerfStruct_t *sslPf;
-	int i;
+	int i,j;
 
 	/* ---------------------------------------------------------- *
 	 * These function calls initialize openssl for correct work.  *
@@ -178,19 +178,22 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 	if(SSL_library_init() < 0)
 		log_error(fp, "Could not initialize the OpenSSL library !\n");
 
-	for (i = 0; i < xmlData->sslPerSec; i++) {
-		sslPf = malloc(sizeof(sslPerfStruct_t));
-		if (sslPf == NULL) {
-			printf("\n Malloc failure at sslPerfStruct malloc"); exit(1);
+	for (j=0; j<xmlData->totalConn/xmlData->sslPerSec; j++) {
+		for (i = 0; i < xmlData->sslPerSec; i++) {
+			sslPf = malloc(sizeof(sslPerfStruct_t));
+			if (sslPf == NULL) {
+				printf("\n Malloc failure at sslPerfStruct malloc"); exit(1);
+			}
+   		 	getOwnIP(sslPf->selfIP);
+   		 	log_info(fp, "SSL: SelfIP: %s", sslPf->selfIP); fflush(fp);
+			sslPf->id = i;
+			sslPfQ[id] = sslPf; // save the sslPf pointer for stats etc
+			sslPerfCreateConn(sslPf, xmlData); // updates the sock in sslPf
+			sslConnectToServer(sslPf, xmlData); 
+			sslPerfGetCertInfo(sslPf, xmlData); 
+			sslPerfFreeConn(sslPf, xmlData); 
 		}
-    	getOwnIP(sslPf->selfIP);
-    	log_info(fp, "SSL: SelfIP: %s", sslPf->selfIP); fflush(fp);
-		sslPf->id = i;
-		sslPfQ[id] = sslPf; // save the sslPf pointer for stats etc
-		sslPerfCreateConn(sslPf, xmlData); // updates the sock in sslPf
-		sslConnectToServer(sslPf, xmlData); // SSL Connect to Server using sslPf->sock
-		sslPerfGetCertInfo(sslPf, xmlData); 
-		//sslPerfFreeConn(sslPf, xmlData); 
+		sleep(1);
 	}
 	for (i = 0; i < xmlData->sslPerSec; i++) {
 		//sslPerfFreeConn(sslPfQ[i], xmlData); 

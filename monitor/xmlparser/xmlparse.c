@@ -17,16 +17,6 @@ static void XMLCALL charData (void *userData, const XML_Char *s, int len) {
 		strncpy(xmlData->serverIP, s, len); xmlData->serverIP[len] = '\0';
 		log_debug(flog_g, "Config: Server: %s, Len:%d", xmlData->serverIP, len);
 		break;
-	case PING:
-		xmlData->state = START;
-		xmlData->pingTimer = strtol(s, NULL, 0);
-		log_debug(flog_g, "Config: PingTimer: %d", xmlData->pingTimer);
-		break;
-	case PING_DURATION:
-		xmlData->state = START;
-		xmlData->pingDuration = strtol(s, NULL, 0);
-		log_debug(flog_g, "Config: PingDuration: %d", xmlData->pingDuration);
-		break;
 	case SSL_PORT:
 		xmlData->state = START;
 		xmlData->sslPort = strtol(s, NULL, 0);
@@ -36,6 +26,21 @@ static void XMLCALL charData (void *userData, const XML_Char *s, int len) {
 		xmlData->state = START;
 		xmlData->sslPerSec = strtol(s, NULL, 0);
 		log_debug(flog_g, "Config: sslPerSec: %d", xmlData->sslPerSec);
+		break;
+	case TOTAL_CONN:
+		xmlData->state = START;
+		xmlData->totalConn = strtol(s, NULL, 0);
+		log_debug(flog_g, "Config: PingTimer: %d", xmlData->totalConn);
+		break;
+	case HELLO_PERSEC:
+		xmlData->state = START;
+		xmlData->helloPerSec = strtol(s, NULL, 0);
+		log_debug(flog_g, "Config: PingDuration: %d", xmlData->helloPerSec);
+		break;
+	case TOTAL_HELLO:
+		xmlData->state = START;
+		xmlData->totalHello = strtol(s, NULL, 0);
+		log_debug(flog_g, "Config: PingDuration: %d", xmlData->totalHello);
 		break;
 	}
 	fflush(flog_g);
@@ -62,10 +67,11 @@ static void XMLCALL start (void *userData, const char *el, const char **attr) {
 #endif
 
 	if(strcmp(el, "serverIP") == 0) xmlData->state = SERVERIP;
-	else if(strcmp(el, "pingTimer") == 0) xmlData->state = PING;
-	else if(strcmp(el, "pingDuration") == 0) xmlData->state = PING_DURATION;
 	else if(strcmp(el, "sslPort") == 0) xmlData->state = SSL_PORT;
 	else if(strcmp(el, "sslPerSec") == 0) xmlData->state = SSL_PERSEC;
+	else if(strcmp(el, "totalConn") == 0) xmlData->state = TOTAL_CONN;
+	else if(strcmp(el, "helloPerSec") == 0) xmlData->state = HELLO_PERSEC;
+	else if(strcmp(el, "totalHello") == 0) xmlData->state = TOTAL_HELLO;
 	else xmlData->state = START;
 }
 
@@ -119,8 +125,11 @@ xmlData_t* parseConfig(char* id, FILE *flog)
 	if (XML_Parse(p, buff, strlen(buff), XML_TRUE) == XML_STATUS_ERROR) {
 		log_error(flog,"Parser Error: %s", XML_ErrorString(XML_GetErrorCode(p)));
 	}
-	log_debug(flog,"**Customer Config: ID:%d, Server: %s, PingTimer: %d, PingDuration: %d, sslPort:%d, sslPerSec:%d", 
-	xmlData->custID, xmlData->serverIP, xmlData->pingTimer, xmlData->pingDuration, xmlData->sslPort, xmlData->sslPerSec);
+	log_debug(flog,"**Customer Config: ID:%d, Server: %s, sslPort: %d, sslPerSec: %d, totalConn: %d, helloPerSec:%d, totalHello:%d", 
+	xmlData->custID, 
+	xmlData->serverIP, xmlData->sslPort, 
+	xmlData->sslPerSec, xmlData->totalConn, 
+	xmlData->helloPerSec, xmlData->totalHello);
 	fclose(fp);
 	// TBD: This crashes the parser. Need to look into this.
 	XML_ParserFree(p);

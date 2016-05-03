@@ -7,11 +7,9 @@ typedef unsigned char uchar;
 typedef enum {
     START,
     CUSTID,
-    SERVERIP,
-    PING,
-    PING_DURATION,
-	SSL_PORT,
-	SSL_PERSEC,
+    SERVERIP, SSL_PORT,
+	SSL_PERSEC, TOTAL_CONN,
+    HELLO_PERSEC, TOTAL_HELLO
 } state_p;
 
 typedef struct {
@@ -19,12 +17,11 @@ typedef struct {
     int custID;
     char serverIP[30]; // Same for Ping and SSL server
 
-	// Ping Params
-    int pingTimer;
-    int pingDuration;
-
 	// SSL Params
 	int sslPort;
     int sslPerSec;
+    int totalConn;
+	int helloPerSec;
+    int totalHello;
 } xmlData_t;
 
