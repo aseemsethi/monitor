@@ -1,6 +1,8 @@
 <custID id="100">
   <serverIP>127.0.0.1</serverIP>
-  <pingTimer>5</pingTimer>
-  <pingDuration>1</pingDuration>
   <sslPort>4433</sslPort>
+  <sslPerSec>1</sslPerSec>
+  <totalConn>1</totalConn>
+  <helloPerSec>1</helloPerSec>
+  <totalHello>1</totalHello>
 </custID>

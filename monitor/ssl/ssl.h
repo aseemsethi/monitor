@@ -85,6 +85,11 @@ typedef struct {
     int sock;
     param_t *paramP;
 	pthread_mutex_t lock;
+
+	// For SSL Perf
+    int id;
+    SSL_CTX *ctx;
+    SSL *ssl;
 } sslStruct;
 
 /**********

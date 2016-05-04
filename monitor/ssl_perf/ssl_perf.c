@@ -14,6 +14,7 @@
 #include "../common/util.h"
 #include "../common/log.h"
 #include <net/if.h> // ifr
+#include "../ssl/ssl.h"
 // SSL Stuff
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -29,26 +30,9 @@ FILE *fp;
 FILE *fsslPerfStats;
 int id = 0;  // stores the id of each sslPf struct allocated
 
-typedef struct {
-    int id;
+sslStruct *sslPfQ[3000];
 
-    // Values that the program modifies
-    int version_1;
-    int version_2;
-    int sessionID;
-
-    char selfIP[INET_ADDRSTRLEN];
-	SSL_CTX *ctx;
-	SSL *ssl;
-        
-    // Unit under test
-    struct sockaddr_in server_addr;
-    struct sockaddr_ll sll;
-    int sock;
-} sslPerfStruct_t;
-sslPerfStruct_t *sslPfQ[3000];
-
-sslPerfGetCertInfo (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+sslPerfGetCertInfo (sslStruct *sslPf, xmlData_t* xmlData) {
 	X509                *cert = NULL;
 	X509_NAME       *certname = NULL;
 
@@ -77,7 +61,7 @@ sslPerfGetCertInfo (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
   X509_free(cert);
 }
 
-sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+sslConnectToServer (sslStruct *sslPf, xmlData_t* xmlData) {
   BIO               *outbio = NULL;
   const SSL_METHOD *method;
   int ret, i;
@@ -131,13 +115,13 @@ sslConnectToServer (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
   return(0);
 }
 
-sslPerfFreeConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+sslPerfFreeConn (sslStruct *sslPf, xmlData_t* xmlData) {
 	SSL_free(sslPf->ssl); 
 	SSL_CTX_free(sslPf->ctx);
 	close(sslPf->sock); 
 }
 
-sslPerfCreateConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
+sslPerfCreateConn (sslStruct *sslPf, xmlData_t* xmlData) {
     struct sockaddr_in;
     
     if((sslPf->sock=socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -164,8 +148,14 @@ sslPerfCreateConn (sslPerfStruct_t *sslPf, xmlData_t* xmlData) {
 	fflush(fp);
 }
 
+sendHellos(sslStruct *sslP, xmlData_t* xmlData) {
+	initConnectionToServer(sslP, xmlData);
+	initParams (sslP, sslP->paramP);
+	sendHello (sslP, sslP->paramP);
+}
+
 sslPerfTestsExec (xmlData_t* xmlData) {
-	sslPerfStruct_t *sslPf;
+	sslStruct *sslPf;
 	int i,j;
 
 	/* ---------------------------------------------------------- *
@@ -178,9 +168,10 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 	if(SSL_library_init() < 0)
 		log_error(fp, "Could not initialize the OpenSSL library !\n");
 
+	// TEST-1: Connections per sec
 	for (j=0; j<xmlData->totalConn/xmlData->sslPerSec; j++) {
 		for (i = 0; i < xmlData->sslPerSec; i++) {
-			sslPf = malloc(sizeof(sslPerfStruct_t));
+			sslPf = malloc(sizeof(sslStruct));
 			if (sslPf == NULL) {
 				printf("\n Malloc failure at sslPerfStruct malloc"); exit(1);
 			}
@@ -191,13 +182,34 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 			sslPerfCreateConn(sslPf, xmlData); // updates the sock in sslPf
 			sslConnectToServer(sslPf, xmlData); 
 			sslPerfGetCertInfo(sslPf, xmlData); 
-			sslPerfFreeConn(sslPf, xmlData); 
+			// TBD: check server_s for simultaneous conn...maybe someething to do
+			// with same ip address of server.
+			// if we don' free(), it does not work with openssl server_s
+			sslPerfFreeConn(sslPf, xmlData);  
 		}
 		sleep(1);
 	}
 	for (i = 0; i < xmlData->sslPerSec; i++) {
 		//sslPerfFreeConn(sslPfQ[i], xmlData); 
 	}
+	// TEST-2: Hellos per sec
+	{
+	sslStruct sslPf;
+	param_t param;
+
+	sslPf.paramP = &param;
+	sslPf.fp = fp;
+	sslPf.paramP->handshakeResp = 0;
+	sslPf.paramP->verifyAlertCode = INVALID_CODE;
+	sslPf.paramP->testId = 0;
+   	getOwnIP(sslPf.selfIP);
+	for (j=0; j<xmlData->totalHello/xmlData->helloPerSec; j++) {
+		for (i=0; i< xmlData->helloPerSec; i++) {
+			sendHellos(&sslPf, xmlData);
+		}
+		sleep(1);
+	}
+	} // end of test-2
 }
 
 int getOwnIP(char *ip) {
