@@ -109,9 +109,9 @@ sslConnectToServer (sslStruct *sslPf, xmlData_t* xmlData) {
 	}
 	}
 
-  log_info(fsslPerfStats, "SSL: Connect to %s with sock: %d, sslId: %d - Pass", 
+  log_info(fp, "SSL: Connect to %s with sock: %d, sslId: %d - Pass", 
 			xmlData->serverIP, sslPf->sock, sslPf->id);
-  fflush(fsslPerfStats);
+  fflush(fp);
   return(0);
 }
 
@@ -168,6 +168,8 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 	if(SSL_library_init() < 0)
 		log_error(fp, "Could not initialize the OpenSSL library !\n");
 
+	log_info(fsslPerfStats, "Starting SSL Perf tests: CPS Test");
+	fflush(fsslPerfStats);
 	// TEST-1: Connections per sec
 	for (j=0; j<xmlData->totalConn/xmlData->sslPerSec; j++) {
 		for (i = 0; i < xmlData->sslPerSec; i++) {
@@ -192,8 +194,12 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 	for (i = 0; i < xmlData->sslPerSec; i++) {
 		//sslPerfFreeConn(sslPfQ[i], xmlData); 
 	}
+	for (i = 0; i < xmlData->totalConn; i++) free(sslPfQ[i]);
+
 	// TEST-2: Hellos per sec
 	{
+	log_info(fsslPerfStats, "Starting SSL Hello Per Sec test");
+	fflush(fsslPerfStats);
 	sslStruct sslPf;
 	param_t param;
 
@@ -211,13 +217,13 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 	}
 	} // end of test-2
 
-	log_info(fp, "---------Test Results Summary------------");
-		log_info(fp, "Sent %d SSL Connections at Rate %d per sec",
+	log_info(fsslPerfStats, "---------Test Results Summary------------");
+		log_info(fsslPerfStats, "Sent %d SSL Connections at Rate %d per sec",
 			xmlData->totalConn, xmlData->sslPerSec );
-		log_info(fp, "Sent %d Client Hello at Rate %d per sec",
+		log_info(fsslPerfStats, "Sent %d Client Hello at Rate %d per sec",
 			xmlData->totalHello, xmlData->helloPerSec);
-	log_info(fp, "-------Test Results Summary End------------");
-    fflush(fp);
+	log_info(fsslPerfStats, "-------Test Results Summary End------------");
+    fflush(fp); fflush(fsslPerfStats);
 }
 
 int getOwnIP(char *ip) {
