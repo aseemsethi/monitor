@@ -210,6 +210,14 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 		sleep(1);
 	}
 	} // end of test-2
+
+	log_info(fp, "---------Test Results Summary------------");
+		log_info(fp, "Sent %d SSL Connections at Rate %d per sec",
+			xmlData->totalConn, xmlData->sslPerSec );
+		log_info(fp, "Sent %d Client Hello at Rate %d per sec",
+			xmlData->totalHello, xmlData->helloPerSec);
+	log_info(fp, "-------Test Results Summary End------------");
+    fflush(fp);
 }
 
 int getOwnIP(char *ip) {
