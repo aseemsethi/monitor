@@ -9,7 +9,8 @@ CFLAGS = -g
 
 csrc = $(wildcard ssl/*.c)  \
 	$(wildcard common/*.c)  \
-	$(wildcard ssl_perf/*.c) 
+	$(wildcard ssl_perf/*.c) \
+	$(wildcard http/*.c) 
 
 obj = $(csrc:.c=.o)
 

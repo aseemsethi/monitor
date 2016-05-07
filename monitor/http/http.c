@@ -11,12 +11,32 @@
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
 #include "../xmlparser/xmlparse.h"
-#include "ping.h"
-#include "../log.h"
+#include "../common/log.h"
 
-FILE *fhttp;
+FILE *fp;
 FILE *fhttpStats;
-int pingPid = -1;
+
+void display (void *buf, int bytes, xmlData_t* xmlData) {
+    int i;
+    struct iphdr *ip = buf;
+    char src[INET_ADDRSTRLEN];
+    char dst[INET_ADDRSTRLEN];
+
+    inet_ntop(AF_INET, &ip->saddr, src, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &ip->daddr, dst, INET_ADDRSTRLEN);
+    i = inet_ntoa(ip->daddr);
+#ifdef DEBUG
+    for (i=0;i<bytes; i++) {
+        if (!(i&15)) log_debug(fp, "%2X: ", i);
+        log_debug(fp, "%2X ", ((unsigned char*)buf)[i]);
+    }
+#endif
+    log_info(fp, "IPv%d:hdr-size=%d pkt-size=%d protocol=%d TTL=%d",
+    ip->version, (ip->ihl)*4, ntohs(ip->tot_len), ip->protocol, ip->ttl);
+    log_info(fp, "src: %s, dst: %s", src, dst);
+
+    fflush(fp);
+}
 
 void httpListener (xmlData_t* xmlData) {
 	int sock;
@@ -30,7 +50,7 @@ void httpListener (xmlData_t* xmlData) {
 		perror("socket");
 		exit(0);
 	}
-	log_debug(fping, "Entering Ping Listener Loop...");
+	log_debug(fp, "Entering Ping Listener Loop...");
 	while(1) {
 		int bytes, len = sizeof(addr);
 		bzero(buf, sizeof(buf));
@@ -54,26 +74,30 @@ void* httpStart(void *args) {
 	sprintf(filePath, "/var/monT/");
 	sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
 	sprintf(&filePath[strlen(filePath)], "/http_stats");
-	fpingStats = fopen(filePath, "a");
-	log_debug(fpingStats, "HTTP started: custID: %d, server:%s, serverURL:%s", 
-			xmlData->custID, xmlData->serverIP, xmlData->serverURL);
+	fhttpStats = fopen(filePath, "a");
+	log_info(fhttpStats, "HTTP started: custID: %d, server:%s", 
+			xmlData->custID, xmlData->serverIP);
 
 	sprintf(filePath, "/var/monT/");
 	sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
 	sprintf(&filePath[strlen(filePath)], "/http_logs");
-	fping = fopen(filePath, "a");
-	log_debug(fping, "HTTP started: custID: %d, server:%s, serverURL:%s", 
-			xmlData->custID, xmlData->serverIP, xmlData->serverURL);
+	fp = fopen(filePath, "a");
+	log_info(fp, "HTTP started: custID: %d, server:%s", 
+			xmlData->custID, xmlData->serverIP);
 
 	if (pthread_create(&threadPID, NULL, httpListener, xmlData)) {
-		printf("\nError creating Listener Thread"); fflush(stdout);
+		log_info(fp, "\nError creating Listener Thread"); fflush(stdout);
 		exit(1);
 	}
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts
-	sleep(1); 
+	while(1) {
+		sleep(2); 
+		continue;
+	}
 
-	fclose(fping);
+	fclose(fp);
+	fclose(fhttpStats);
 	return 0;
 }
 
