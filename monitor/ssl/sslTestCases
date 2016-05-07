@@ -33,8 +33,8 @@ sslTests_t sslTests[SSL_NUM_TESTS] = {
 		"Send Client Hello with Invalid Session ID Length, and expect an Alert msg back, with the error mentioning Malformed Client Hello.",
 	},
 	{	"7_send_serverKeyExchange",
-		initParams, sendHello, verifyPassed, server_hello, SSL3_AD_UNEXPECTED_MESSAGE,
-		updateStats, sendServerKeyExchange, verifyAgainNull, INVALID_CODE,
+		initParams, sendHello, verifyPassed, server_hello, INVALID_CODE,
+		updateStats, sendServerKeyExchange, verifyFailed, server_key_exchange,
 		"Send Client Hello followed by a ServerKeyExchange rather than a ClientKeyExchange. Expect an Alert msg back, with the error mentioning Unexpected Message",
 	}
 };
