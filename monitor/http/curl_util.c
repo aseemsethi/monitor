@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "../xmlparser/xmlparse.h"
 /* somewhat unix-specific */ 
 #include <sys/time.h>
 #include <unistd.h>
@@ -40,7 +41,7 @@ CURL* init(CURLM *cm, int i) {
 	return eh;
 }
 
-int curl_main(void)
+int curl_main(xmlData_t *xmlData)
 {
   CURL *handles[MAX_PARALLEL];
   CURLM *multi_handle;
@@ -49,7 +50,7 @@ int curl_main(void)
   int i;
   CURLMsg *msg; /* for picking up messages with the transfer status */ 
   int msgs_left; /* how many messages are left */ 
-  int httpParallel = 2; // xmlData->httpParallel
+  int httpParallel = xmlData->httpParallel;
 
   /* init a multi stack */ 
   multi_handle = curl_multi_init();

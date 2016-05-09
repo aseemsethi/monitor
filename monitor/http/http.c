@@ -96,7 +96,7 @@ void* httpStart(void *args) {
 		exit(1);
 	}
 
-	curl_main();
+	curl_main(xmlData);
 
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts

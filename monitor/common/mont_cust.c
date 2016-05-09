@@ -99,9 +99,10 @@ main(int argc, char *argv[]) {
 	// Read in the config for customer id: argv[1]
 	xmlData = parseConfig(argv[1], fmont);
 	if (xmlData == NULL) {
-		log_error(fmont, "No config in /var/monT/%s: Exiting mont_cust process",
+		log_error(fmont, "Config error in /var/monT/%s: Exiting mont_cust process",
 				argv[1]);
-		fflush(fmont); return;
+		fflush(fmont); 
+		goto error;
 	}
 	if(strcmp(argv[2], "ssl") == 0) {
 		// mont_cust 100 ssl
@@ -113,10 +114,11 @@ main(int argc, char *argv[]) {
 		startSslPerfThread(xmlData);
 	} else if(strcmp(argv[2], "http") == 0) {
 		// mont_cust 100 ssl_perf
-		log_info(fmont, "SSL Performance Testing..");
+		log_info(fmont, "HTTP Testing..");
 		startHttpThread(xmlData);
 	}
 	fflush(fmont);
+error:
 
 	// TBD : Start CLI parser thread here, vs sleeping
 	while(1) {
