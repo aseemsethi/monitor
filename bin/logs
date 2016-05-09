@@ -1,16 +1,26 @@
 #!/bin/bash
 i=0
 colors=( blue green yellow orange )
-for var in "$@"
-do
   useColor=${colors[i]}
   i=$(( $i+1 ))
   i=$(( $i%${#colors[@]} ))
-  if [ -n "$var" ]
-  then
-    echo "Log file for $var"
-    xterm -bg ${colors[i]} -T "SSL FUNC $var" -e "tail -f /var/monT/$var/ssl_logs"&
-    xterm -bg ${colors[i]} -T "SSL PERF $var" -e "tail -f /var/monT/$var/ssl_perf_logs"&
-    xterm -bg ${colors[i]} -T "CUST $var" -e "tail -f /var/monT/$var/cust_logs"&
-  fi
-done
+case $2 in
+	SSL)
+    echo "Log file for $1 $2"
+    xterm -bg ${colors[i]} -T "SSL FUNC $1 $2" -e "tail -f /var/monT/$1/ssl_logs"&
+    xterm -bg ${colors[i]} -T "SSL PERF $1 $2" -e "tail -f /var/monT/$1/ssl_stats"&
+	;;
+	SSL_PERF)
+    echo "Log file for $1 $2"
+    xterm -bg ${colors[i]} -T "SSL FUNC $1 $2" -e "tail -f /var/monT/$1/ssl_perf_logs"&
+    xterm -bg ${colors[i]} -T "SSL PERF $1 $2" -e "tail -f /var/monT/$1/ssl_perf_stats"&
+	;;
+	HTTP)
+    echo "Log file for $1 $2"
+    xterm -bg ${colors[i]} -T "SSL FUNC $1 $2" -e "tail -f /var/monT/$1/http_logs"&
+    xterm -bg ${colors[i]} -T "SSL PERF $1 $2" -e "tail -f /var/monT/$1/http_stats"&
+	;;
+	*)
+	echo "Invalid input"
+	exit 1
+esac
