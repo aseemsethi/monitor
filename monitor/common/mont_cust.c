@@ -11,12 +11,26 @@
 #include "log.h"
 
 FILE *fmont;
-pthread_t sslPID, sslPerfPID;
+pthread_t sslPID, sslPerfPID, httpPID;
 
 
 xmlData_t* parseConfig(char*, FILE *flog);
 void* sslStart(void *args);
 void* sslPerfStart(void *args);
+void* httpStart(void *args);
+
+startHttpThread (xmlData_t* xmlData) {
+	struct stat st;
+	char filePath[100];
+	
+	// Create SSL thread
+	log_debug(fmont, "CUST: Create HTTP thread.."); fflush(fmont);
+	if (pthread_create(&httpPID, NULL, httpStart, (void*)xmlData)) {
+		log_error(fmont, "Error creating HTTP Thread"); fflush(fmont);
+		exit(1);
+	}
+	fflush(fmont);
+}
 
 startSslPerfThread (xmlData_t* xmlData) {
 	struct stat st;
@@ -97,6 +111,10 @@ main(int argc, char *argv[]) {
 		// mont_cust 100 ssl_perf
 		log_info(fmont, "SSL Performance Testing..");
 		startSslPerfThread(xmlData);
+	} else if(strcmp(argv[2], "http") == 0) {
+		// mont_cust 100 ssl_perf
+		log_info(fmont, "SSL Performance Testing..");
+		startHttpThread(xmlData);
 	}
 	fflush(fmont);
 

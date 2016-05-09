@@ -15,7 +15,7 @@ csrc = $(wildcard ssl/*.c)  \
 
 obj = $(csrc:.c=.o)
 
-LDFLAGS = -L../bin -lxmlparse -lexpat -lpthread -lssl
+LDFLAGS = -L../bin -lxmlparse -lexpat -lpthread -lssl -lcurl
 
 # Targets 
 all : $(MONT)

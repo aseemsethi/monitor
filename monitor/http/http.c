@@ -12,6 +12,12 @@
 #include <netinet/ip_icmp.h>
 #include "../xmlparser/xmlparse.h"
 #include "../common/log.h"
+/* somewhat unix-specific */ 
+#include <sys/time.h>
+#include <unistd.h>
+/* curl stuff */ 
+#include <curl/curl.h>
+ 
 
 FILE *fp;
 FILE *fhttpStats;
@@ -89,6 +95,9 @@ void* httpStart(void *args) {
 		log_info(fp, "\nError creating Listener Thread"); fflush(stdout);
 		exit(1);
 	}
+
+	curl_main();
+
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts
 	while(1) {
