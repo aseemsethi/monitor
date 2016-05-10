@@ -91,12 +91,14 @@ void* httpStart(void *args) {
 	log_info(fp, "HTTP started: custID: %d, server:%s", 
 			xmlData->custID, xmlData->serverIP);
 
+/*
 	if (pthread_create(&threadPID, NULL, httpListener, xmlData)) {
 		log_info(fp, "\nError creating Listener Thread"); fflush(stdout);
 		exit(1);
 	}
+*/
 
-	curl_main(xmlData);
+	curl_main(xmlData, fhttpStats, fp);
 
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts

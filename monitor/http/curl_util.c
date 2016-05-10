@@ -1,3 +1,6 @@
+/*
+ * Code taken and modified from https://curl.haxx.se/libcurl/c/10-at-a-time.html
+ */
 #include <stdio.h>
 #include <string.h>
 #include "../xmlparser/xmlparse.h"
@@ -6,6 +9,7 @@
 #include <unistd.h>
 /* curl stuff */ 
 #include <curl/curl.h>
+#include "../common/log.h"
 
 static const char *urls[] = {
   "http://www.microsoft.com",
@@ -41,7 +45,7 @@ CURL* init(CURLM *cm, int i) {
 	return eh;
 }
 
-int curl_main(xmlData_t *xmlData)
+int curl_main(xmlData_t *xmlData, FILE *fhttpStats, FILE *fp)
 {
   CURL *handles[MAX_PARALLEL];
   CURLM *multi_handle;
@@ -95,7 +99,7 @@ int curl_main(xmlData_t *xmlData)
     mc = curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
  
     if(mc != CURLM_OK) {
-      fprintf(stderr, "curl_multi_fdset() failed, code %d.\n", mc);
+      log_error(fp, "curl_multi_fdset() failed, code %d.\n", mc);
       break;
     }
  
@@ -131,12 +135,14 @@ int curl_main(xmlData_t *xmlData)
 		char *url;
         CURL *e = msg->easy_handle;
         curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &url);
-        fprintf(stderr, "R: %d - %s <%s>\n",
+        log_info(fp, "R: %d - %s <%s>\n",
+                msg->data.result, curl_easy_strerror(msg->data.result), url);
+        log_info(fhttpStats, "R: %d - %s <%s>\n",
                 msg->data.result, curl_easy_strerror(msg->data.result), url);
         curl_multi_remove_handle(multi_handle, e);
         //curl_easy_cleanup(e);
       } else {
-        fprintf(stderr, "E: CURLMsg (%d)\n", msg->msg);
+        log_error(fp, "E: CURLMsg (%d)\n", msg->msg);
       }	
   }
  
