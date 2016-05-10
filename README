@@ -5,25 +5,30 @@ One of the things that can be tested is SSL. There are many Assessment Tools tod
 A list of cve ids is maintained at: https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=openssl
 
 The Monitor Application is a single binary called "mont_cust". This is spawned as follows :
- For SSL Function Test: ./mont_cust ssl 100
- For SSL Performance Test: ./mont_cust ssl_perf 100
+ For SSL Function Test: ./mont_cust 100 ssl
+ For SSL Performance Test: ./mont_cust 100 ssl_perf
+ For HTTP Test: ./mont_cust 100 http
 
 The SSL Test Process executes all tests, and write:
 - log file in /var/monT/<custID> - ssl_logs, ssl_perf_logs, 
 - stat  file in /var/monT/<custID> - ssl_stats, ssl_perf_stats, 
 
 Example of Config on /var/monT/100/config.xml
-
 <custID id="100">
-  <serverIP>8.8.8.8</serverIP>
-  <pingTimer>5</pingTimer>
-  <pingDuration>1</pingDuration>
+  <serverIP>127.0.0.1</serverIP>
+  <sslPort>4433</sslPort>
+  <sslPerSec>1</sslPerSec>
+  <totalConn>2</totalConn>
+  <helloPerSec>1</helloPerSec>
+  <totalHello>2</totalHello>
+  <httpParallel>2</httpParallel>
+  <httpSerial>2</httpSerial>
 </custID>
 
 Logging
 =======
-See all logs (cust, ssl, ping) of the customer if 100 and/or 200 in separate xterm windows 
-./logs 100 200
+See all logs (cust, ssl, http) of the customer 100
+./logs 100 [ssl | ssl_perf | http]
 
 
 SSL Versions and Recommendations

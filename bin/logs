@@ -5,20 +5,20 @@ colors=( blue green yellow orange )
   i=$(( $i+1 ))
   i=$(( $i%${#colors[@]} ))
 case $2 in
-	SSL)
+	ssl)
     echo "Log file for $1 $2"
     xterm -bg ${colors[i]} -T "SSL FUNC $1 $2" -e "tail -f /var/monT/$1/ssl_logs"&
     xterm -bg ${colors[i]} -T "SSL PERF $1 $2" -e "tail -f /var/monT/$1/ssl_stats"&
 	;;
-	SSL_PERF)
+	ssl_perf)
     echo "Log file for $1 $2"
     xterm -bg ${colors[i]} -T "SSL FUNC $1 $2" -e "tail -f /var/monT/$1/ssl_perf_logs"&
     xterm -bg ${colors[i]} -T "SSL PERF $1 $2" -e "tail -f /var/monT/$1/ssl_perf_stats"&
 	;;
-	HTTP)
+	http)
     echo "Log file for $1 $2"
-    xterm -bg ${colors[i]} -T "SSL FUNC $1 $2" -e "tail -f /var/monT/$1/http_logs"&
-    xterm -bg ${colors[i]} -T "SSL PERF $1 $2" -e "tail -f /var/monT/$1/http_stats"&
+    xterm -bg ${colors[i]} -T "HTTP $1 $2" -e "tail -f /var/monT/$1/http_logs"&
+    xterm -bg ${colors[i]} -T "HTTP $1 $2" -e "tail -f /var/monT/$1/http_stats"&
 	;;
 	*)
 	echo "Invalid input"
