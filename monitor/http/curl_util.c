@@ -20,6 +20,7 @@ static const char *urls[] = {
 };
 #define CNT sizeof(urls)/sizeof(char*)  
 #define MAX_PARALLEL 100
+int verbose;
 
 /*
  * Called for data recvd, via CURLOPT_WRITEFUNCTION
@@ -36,12 +37,17 @@ CURL* init(CURLM *cm, int i) {
   CURL *eh = curl_easy_init();
  
   // The following disables output to stdout
-  curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
+  //curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
 
   curl_easy_setopt(eh, CURLOPT_HEADER, 0L);
   curl_easy_setopt(eh, CURLOPT_URL, urls[i]);
   curl_easy_setopt(eh, CURLOPT_PRIVATE, urls[i]);
-  curl_easy_setopt(eh, CURLOPT_VERBOSE, 0L);
+  curl_easy_setopt(eh, CURLOPT_VERBOSE, verbose);
+    /* Ask for filetime */
+  curl_easy_setopt(eh, CURLOPT_FILETIME, 1L);
+
+  /* Set the STAT command */ 
+  //curl_easy_setopt(eh, CURLOPT_CUSTOMREQUEST, "STAT");
  
   curl_multi_add_handle(cm, eh);
 	return eh;
@@ -57,6 +63,7 @@ int curl_main(xmlData_t *xmlData, FILE *fhttpStats, FILE *fp)
   CURLMsg *msg; /* for picking up messages with the transfer status */ 
   int msgs_left; /* how many messages are left */ 
   int httpParallel = xmlData->httpParallel;
+  verbose = xmlData->httpVerbose;
 
   /* init a multi stack */ 
   multi_handle = curl_multi_init();
@@ -135,13 +142,23 @@ int curl_main(xmlData_t *xmlData, FILE *fhttpStats, FILE *fp)
   while((msg = curl_multi_info_read(multi_handle, &msgs_left))) {
     if(msg->msg == CURLMSG_DONE) {
 		char *url;
+		long respcode, redirect;
+		double dlSpeed, filesize;
+		time_t filetime;
         CURL *e = msg->easy_handle;
-        curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &url);
-        log_info(fp, "R: %d - %s <%s>\n",
+        curl_easy_getinfo(e, CURLINFO_PRIVATE, &url);
+		curl_easy_getinfo(e, CURLINFO_RESPONSE_CODE, &respcode);
+		curl_easy_getinfo(e, CURLINFO_REDIRECT_COUNT, &redirect);
+		curl_easy_getinfo (e, CURLINFO_SPEED_DOWNLOAD, &dlSpeed);
+        curl_easy_getinfo(e, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &filesize);
+        curl_easy_getinfo(e, CURLINFO_FILETIME, &filetime);
+        log_info(fp, "R: %d - %s <%s>",
                 msg->data.result, curl_easy_strerror(msg->data.result), url); 
 		fflush(fp);
-        log_info(fhttpStats, "R: %d - %s <%s>\n",
+        log_info(fhttpStats, "R: %d - %s <%s>",
                 msg->data.result, curl_easy_strerror(msg->data.result), url);
+        log_info(fhttpStats, "Stats: respcode:%d, redirect-count:%d, dlSpeed:%.2fKB/sec, filesize:%0.0f, filetime:%s", 
+			respcode, redirect, dlSpeed/1024, filesize, ctime(&filetime)); 
 		fflush(fhttpStats);
         curl_multi_remove_handle(multi_handle, e);
         //curl_easy_cleanup(e);

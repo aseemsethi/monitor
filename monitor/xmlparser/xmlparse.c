@@ -42,6 +42,11 @@ static void XMLCALL charData (void *userData, const XML_Char *s, int len) {
 		xmlData->totalHello = strtol(s, NULL, 0);
 		log_debug(flog_g, "Config: PingDuration: %d", xmlData->totalHello);
 		break;
+	case HTTP_VERBOSE:
+		xmlData->state = START;
+		xmlData->httpVerbose = strtol(s, NULL, 0);
+		log_debug(flog_g, "Config: httpVerbose: %d", xmlData->httpVerbose);
+		break;
 	case HTTP_PARALLEL:
 		xmlData->state = START;
 		xmlData->httpParallel = strtol(s, NULL, 0);
@@ -84,6 +89,7 @@ static void XMLCALL start (void *userData, const char *el, const char **attr) {
 	else if(strcmp(el, "totalHello") == 0) xmlData->state = TOTAL_HELLO;
 	else if(strcmp(el, "httpParallel") == 0) xmlData->state = HTTP_PARALLEL;
 	else if(strcmp(el, "httpSerial") == 0) xmlData->state = HTTP_SERIAL;
+	else if(strcmp(el, "httpVerbose") == 0) xmlData->state = HTTP_VERBOSE;
 	else xmlData->state = START;
 }
 
@@ -138,12 +144,12 @@ xmlData_t* parseConfig(char* id, FILE *flog)
 		log_error(flog,"Parser Error: %s", XML_ErrorString(XML_GetErrorCode(p)));
 		return NULL;
 	}
-	log_debug(flog,"**Customer Config: ID:%d, Server: %s, sslPort: %d, sslPerSec: %d, totalConn: %d, helloPerSec:%d, totalHello:%d, httpParallel:%d, httpSerial:%d", 
+	log_debug(flog,"**Customer Config: ID:%d, Server: %s, sslPort: %d, sslPerSec: %d, totalConn: %d, helloPerSec:%d, totalHello:%d, httpParallel:%d, httpSerial:%d, httpVerbose:%d", 
 	xmlData->custID, 
 	xmlData->serverIP, xmlData->sslPort, 
 	xmlData->sslPerSec, xmlData->totalConn, 
 	xmlData->helloPerSec, xmlData->totalHello,
-	xmlData->httpParallel, xmlData->httpSerial);
+	xmlData->httpParallel, xmlData->httpSerial, xmlData->httpVerbose);
 	fclose(fp);
 	// TBD: This crashes the parser. Need to look into this.
 	XML_ParserFree(p);

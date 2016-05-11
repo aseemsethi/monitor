@@ -10,7 +10,7 @@ typedef enum {
     SERVERIP, SSL_PORT,
 	SSL_PERSEC, TOTAL_CONN,
     HELLO_PERSEC, TOTAL_HELLO,
-	HTTP_PARALLEL, HTTP_SERIAL
+	HTTP_PARALLEL, HTTP_SERIAL, HTTP_VERBOSE
 } state_p;
 
 typedef struct {
@@ -26,5 +26,6 @@ typedef struct {
     int totalHello;
     int httpParallel;
     int httpSerial;
+    int httpVerbose;
 } xmlData_t;
 
