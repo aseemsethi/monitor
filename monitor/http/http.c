@@ -88,7 +88,7 @@ void* httpStart(void *args) {
 	sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
 	sprintf(&filePath[strlen(filePath)], "/http_logs");
 	fp = fopen(filePath, "a");
-	log_info(fp, "HTTP started: custID: %d, server:%s", 
+	log_info(fp, "**  HTTP started: custID: %d, server:%s **", 
 			xmlData->custID, xmlData->serverIP);
 
 /*
@@ -102,6 +102,7 @@ void* httpStart(void *args) {
 
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts
+	printf("\n Entering CLI loop"); fflush(stdout);
 	while(1) {
 		sleep(2); 
 		continue;

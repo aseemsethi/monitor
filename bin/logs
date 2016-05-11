@@ -18,7 +18,7 @@ case $2 in
 	http)
     echo "Log file for $1 $2"
     xterm -bg ${colors[i]} -T "HTTP $1 $2" -e "tail -f /var/monT/$1/http_logs"&
-    xterm -bg ${colors[i]} -T "HTTP $1 $2" -e "tail -f /var/monT/$1/http_stats"&
+    xterm -bg ${colors[i]} -T "HTTP STATS $1 $2" -e "tail -f /var/monT/$1/http_stats"&
 	;;
 	*)
 	echo "Invalid input"

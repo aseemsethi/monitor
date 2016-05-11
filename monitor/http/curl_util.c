@@ -35,7 +35,9 @@ static size_t cb(char *d, size_t n, size_t l, void *p)
 CURL* init(CURLM *cm, int i) {
   CURL *eh = curl_easy_init();
  
-  //curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
+  // The following disables output to stdout
+  curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
+
   curl_easy_setopt(eh, CURLOPT_HEADER, 0L);
   curl_easy_setopt(eh, CURLOPT_URL, urls[i]);
   curl_easy_setopt(eh, CURLOPT_PRIVATE, urls[i]);
@@ -99,7 +101,7 @@ int curl_main(xmlData_t *xmlData, FILE *fhttpStats, FILE *fp)
     mc = curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
  
     if(mc != CURLM_OK) {
-      log_error(fp, "curl_multi_fdset() failed, code %d.\n", mc);
+      log_error(fp, "curl_multi_fdset() failed, code %d.\n", mc); fflush(fp);
       break;
     }
  
@@ -136,13 +138,15 @@ int curl_main(xmlData_t *xmlData, FILE *fhttpStats, FILE *fp)
         CURL *e = msg->easy_handle;
         curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &url);
         log_info(fp, "R: %d - %s <%s>\n",
-                msg->data.result, curl_easy_strerror(msg->data.result), url);
+                msg->data.result, curl_easy_strerror(msg->data.result), url); 
+		fflush(fp);
         log_info(fhttpStats, "R: %d - %s <%s>\n",
                 msg->data.result, curl_easy_strerror(msg->data.result), url);
+		fflush(fhttpStats);
         curl_multi_remove_handle(multi_handle, e);
         //curl_easy_cleanup(e);
       } else {
-        log_error(fp, "E: CURLMsg (%d)\n", msg->msg);
+        log_error(fp, "E: CURLMsg (%d)\n", msg->msg); fflush(fp);
       }	
   }
  
