@@ -7,51 +7,51 @@
 #include "pthread.h"
 #include "errno.h"
 #include <sys/stat.h>
-#include "../xmlparser/xmlparse.h"
+#include "../common/parser.h"
 #include "log.h"
 
 FILE *fmont;
 pthread_t sslPID, sslPerfPID, httpPID;
 
 
-xmlData_t* parseConfig(char*, FILE *flog);
+jsonData_t* parse (char*, FILE *flog);
 void* sslStart(void *args);
 void* sslPerfStart(void *args);
 void* httpStart(void *args);
 
-startHttpThread (xmlData_t* xmlData) {
+startHttpThread (jsonData_t* jsonData) {
 	struct stat st;
 	char filePath[100];
 	
 	// Create SSL thread
 	log_debug(fmont, "CUST: Create HTTP thread.."); fflush(fmont);
-	if (pthread_create(&httpPID, NULL, httpStart, (void*)xmlData)) {
+	if (pthread_create(&httpPID, NULL, httpStart, (void*)jsonData)) {
 		log_error(fmont, "Error creating HTTP Thread"); fflush(fmont);
 		exit(1);
 	}
 	fflush(fmont);
 }
 
-startSslPerfThread (xmlData_t* xmlData) {
+startSslPerfThread (jsonData_t* jsonData) {
 	struct stat st;
 	char filePath[100];
 	
 	// Create SSL thread
 	log_debug(fmont, "CUST: Create SSL thread.."); fflush(fmont);
-	if (pthread_create(&sslPerfPID, NULL, sslPerfStart, (void*)xmlData)) {
+	if (pthread_create(&sslPerfPID, NULL, sslPerfStart, (void*)jsonData)) {
 		log_error(fmont, "Error creating SSL Perf Thread"); fflush(fmont);
 		exit(1);
 	}
 	fflush(fmont);
 }
 
-startSslThread (xmlData_t* xmlData) {
+startSslThread (jsonData_t* jsonData) {
 	struct stat st;
 	char filePath[100];
 	
 	// Create SSL thread
 	log_debug(fmont, "CUST: Create SSL thread.."); fflush(fmont);
-	if (pthread_create(&sslPID, NULL, sslStart, (void*)xmlData)) {
+	if (pthread_create(&sslPID, NULL, sslStart, (void*)jsonData)) {
 		log_error(fmont, "Error creating SSL Thread"); fflush(fmont);
 		exit(1);
 	}
@@ -80,7 +80,7 @@ startSslThread (xmlData_t* xmlData) {
  *       ./mont_client localhost ./mont_cust ping 100
  */
 main(int argc, char *argv[]) {
-	xmlData_t* xmlData;
+	jsonData_t* jsonData;
 	char filePath[100];
 
 	sprintf(filePath, "/var/monT/");
@@ -97,8 +97,8 @@ main(int argc, char *argv[]) {
 	log_debug(fmont, "LOG Monitor: %d params:%s:%s", argc, argv[1], argv[2]);
 
 	// Read in the config for customer id: argv[1]
-	xmlData = parseConfig(argv[1], fmont);
-	if (xmlData == NULL) {
+	jsonData = parse(argv[1], fmont);
+	if (jsonData == NULL) {
 		log_error(fmont, "Config error in /var/monT/%s: Exiting mont_cust process",
 				argv[1]);
 		fflush(fmont); 
@@ -107,15 +107,15 @@ main(int argc, char *argv[]) {
 	if(strcmp(argv[2], "ssl") == 0) {
 		// mont_cust 100 ssl
 		log_info(fmont, "SSL Functional Testing..");
-		startSslThread(xmlData);
+		startSslThread(jsonData);
 	} else if(strcmp(argv[2], "ssl_perf") == 0) {
 		// mont_cust 100 ssl_perf
 		log_info(fmont, "SSL Performance Testing..");
-		startSslPerfThread(xmlData);
+		startSslPerfThread(jsonData);
 	} else if(strcmp(argv[2], "http") == 0) {
 		// mont_cust 100 ssl_perf
 		log_info(fmont, "HTTP Testing..");
-		startHttpThread(xmlData);
+		startHttpThread(jsonData);
 	}
 	fflush(fmont);
 error:

@@ -10,7 +10,7 @@
 #include <limits.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
-#include "../xmlparser/xmlparse.h"
+#include "../common/parser.h"
 #include "../common/log.h"
 /* somewhat unix-specific */ 
 #include <sys/time.h>
@@ -22,7 +22,7 @@
 FILE *fp;
 FILE *fhttpStats;
 
-void display (void *buf, int bytes, xmlData_t* xmlData) {
+void display (void *buf, int bytes, jsonData_t* jsonData) {
     int i;
     struct iphdr *ip = buf;
     char src[INET_ADDRSTRLEN];
@@ -44,7 +44,7 @@ void display (void *buf, int bytes, xmlData_t* xmlData) {
     fflush(fp);
 }
 
-void httpListener (xmlData_t* xmlData) {
+void httpListener (jsonData_t* jsonData) {
 	int sock;
 	struct sockaddr_in addr;
 	unsigned char buf[1024];
@@ -63,7 +63,7 @@ void httpListener (xmlData_t* xmlData) {
 		bytes = recvfrom(sock, buf, sizeof(buf), 0, 
 				(struct sockaddr*)&addr, &len);
 		if (bytes > 0)
-			display(buf, bytes, xmlData);
+			display(buf, bytes, jsonData);
 		else {
 			perror("recvfrom");
 		}
@@ -75,30 +75,30 @@ void* httpStart(void *args) {
 	pthread_t threadPID;
 	char filePath[100];
 
-	xmlData_t* xmlData = (xmlData_t*)args;
+	jsonData_t* jsonData = (jsonData_t*)args;
 
 	sprintf(filePath, "/var/monT/");
-	sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
+	sprintf(&filePath[strlen("/var/monT/")], "%d", jsonData->custID);
 	sprintf(&filePath[strlen(filePath)], "/http_stats");
 	fhttpStats = fopen(filePath, "a");
 	log_info(fhttpStats, "HTTP started: custID: %d, server:%s", 
-			xmlData->custID, xmlData->serverIP);
+			jsonData->custID, jsonData->serverIP);
 
 	sprintf(filePath, "/var/monT/");
-	sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
+	sprintf(&filePath[strlen("/var/monT/")], "%d", jsonData->custID);
 	sprintf(&filePath[strlen(filePath)], "/http_logs");
 	fp = fopen(filePath, "a");
 	log_info(fp, "**  HTTP started: custID: %d, server:%s **", 
-			xmlData->custID, xmlData->serverIP);
+			jsonData->custID, jsonData->serverIP);
 
 /*
-	if (pthread_create(&threadPID, NULL, httpListener, xmlData)) {
+	if (pthread_create(&threadPID, NULL, httpListener, jsonData)) {
 		log_info(fp, "\nError creating Listener Thread"); fflush(stdout);
 		exit(1);
 	}
 */
 
-	curl_main(xmlData, fhttpStats, fp);
+	curl_main(jsonData, fhttpStats, fp);
 
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts

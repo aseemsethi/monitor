@@ -3,7 +3,7 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "../xmlparser/xmlparse.h"
+#include "../common/parser.h"
 /* somewhat unix-specific */ 
 #include <sys/time.h>
 #include <unistd.h>
@@ -37,7 +37,7 @@ CURL* init(CURLM *cm, int i) {
   CURL *eh = curl_easy_init();
  
   // The following disables output to stdout
-  //curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
+  curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
 
   curl_easy_setopt(eh, CURLOPT_HEADER, 0L);
   curl_easy_setopt(eh, CURLOPT_URL, urls[i]);
@@ -53,7 +53,7 @@ CURL* init(CURLM *cm, int i) {
 	return eh;
 }
 
-int curl_main(xmlData_t *xmlData, FILE *fhttpStats, FILE *fp)
+int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
 {
   CURL *handles[MAX_PARALLEL];
   CURLM *multi_handle;
@@ -62,8 +62,8 @@ int curl_main(xmlData_t *xmlData, FILE *fhttpStats, FILE *fp)
   int i;
   CURLMsg *msg; /* for picking up messages with the transfer status */ 
   int msgs_left; /* how many messages are left */ 
-  int httpParallel = xmlData->httpParallel;
-  verbose = xmlData->httpVerbose;
+  int httpParallel = jsonData->httpParallel;
+  verbose = jsonData->httpVerbose;
 
   /* init a multi stack */ 
   multi_handle = curl_multi_init();

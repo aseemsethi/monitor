@@ -11,6 +11,7 @@ FILE *flog_g = NULL;
 static int depth = 0;
 static void XMLCALL charData (void *userData, const XML_Char *s, int len) {
 	xmlData_t* xmlData = (xmlData_t*)userData;
+	char tmp[1024];
 	switch(xmlData->state) {
 	case SERVERIP:
 		xmlData->state = START;
@@ -57,6 +58,11 @@ static void XMLCALL charData (void *userData, const XML_Char *s, int len) {
 		xmlData->httpSerial = strtol(s, NULL, 0);
 		log_debug(flog_g, "Config: httpSerial: %d", xmlData->httpSerial);
 		break;
+	case HTTPPARAMS:
+		xmlData->state = HTTPPARAMS;
+		strncpy(tmp, s, len); tmp[len] = '\0';
+		log_debug(flog_g, "Config: http params %s:%d", tmp, len);
+		break;
 	}
 	fflush(flog_g);
 }
@@ -67,8 +73,8 @@ static void XMLCALL start (void *userData, const char *el, const char **attr) {
 #ifdef DEBUG
 	for (i=0;i<depth; i++)
 		printf(" ");
-	printf("%s", el);
 #endif
+	printf("\nStart: %s", el);
 	for (i=0;attr[i]; i+=2) {
 		// printf("%s = %s", attr[i], attr[i+1]);
 		if(strcmp(attr[i], "id") == 0) {
@@ -90,10 +96,12 @@ static void XMLCALL start (void *userData, const char *el, const char **attr) {
 	else if(strcmp(el, "httpParallel") == 0) xmlData->state = HTTP_PARALLEL;
 	else if(strcmp(el, "httpSerial") == 0) xmlData->state = HTTP_SERIAL;
 	else if(strcmp(el, "httpVerbose") == 0) xmlData->state = HTTP_VERBOSE;
+	else if(strcmp(el, "HTTPPARAMS") == 0) xmlData->state = HTTPPARAMS;
 	else xmlData->state = START;
 }
 
 static void XMLCALL end (void *data, const char *el) {
+	printf(" ,End: %s", el); fflush(stdout);
 	depth--;
 }
 
@@ -151,7 +159,6 @@ xmlData_t* parseConfig(char* id, FILE *flog)
 	xmlData->helloPerSec, xmlData->totalHello,
 	xmlData->httpParallel, xmlData->httpSerial, xmlData->httpVerbose);
 	fclose(fp);
-	// TBD: This crashes the parser. Need to look into this.
 	XML_ParserFree(p);
 	return xmlData;
 }
