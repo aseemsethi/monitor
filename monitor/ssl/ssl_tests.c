@@ -9,7 +9,7 @@
 #include <linux/if_packet.h> //sll
 #include <sys/ioctl.h>
 #include <netinet/ip_icmp.h>
-#include "../xmlparser/xmlparse.h"
+#include "../common/parser.h"
 #include <sys/signal.h>
 #include "ssl.h"
 #include "../common/log.h"
@@ -520,14 +520,14 @@ signalRecvThread(sslStruct *sslP) {
 	return 0;
 }
 
-sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
+sslTestsExec(sslStruct *sslP, jsonData_t* jsonData) {
 	int i, status;
 	struct sigaction sigact;
 	struct timespec tim1;
 	pthread_t recvThread;
 	char result[20];
 
-    initConnectionToServer(sslP, xmlData);
+    initConnectionToServer(sslP, jsonData);
     status = pthread_create(&recvThread, NULL, &recvFunction, (void*)sslP);
     if (status != 0) { perror("Start Thread Error:"); return -1; }
 
@@ -587,7 +587,7 @@ sslTestsExec(sslStruct *sslP, xmlData_t* xmlData) {
 		}
 		sslP->paramP->handshakeResp = 0;
 		 sslP->paramP->verifyAlertCode = INVALID_CODE;
-    	initConnectionToServer(sslP, xmlData);
+    	initConnectionToServer(sslP, jsonData);
  		status = pthread_create(&recvThread, NULL, &recvFunction, 
 					(void*)sslP);
     	if (status != 0) { perror("Start Thread Error:"); return -1; }

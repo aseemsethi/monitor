@@ -8,7 +8,7 @@
 #include <arpa/inet.h> // for inet_ntoa
 #include <netinet/ip_icmp.h>
 #include <pthread.h>
-#include "../xmlparser/xmlparse.h"
+#include "../common/parser.h"
 #include "../common/util.h"
 #include "ssl.h"
 #include "../common/log.h"
@@ -35,7 +35,7 @@ sendData(sslStruct *sslP, uchar *ptr, int length) {
  *  * Set up a INET socket and connect to SERVER on SSL_PORT
  *   * SSL_PORT = 443 for real SSL servers
  *    */
-initConnectionToServer(sslStruct *sslP, xmlData_t* xmlData) {
+initConnectionToServer(sslStruct *sslP, jsonData_t* jsonData) {
     struct sockaddr_in;
 
     if((sslP->sock=socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -44,12 +44,12 @@ initConnectionToServer(sslStruct *sslP, xmlData_t* xmlData) {
             exit(1);
     }
     sslP->server_addr.sin_family = AF_INET;
-    sslP->server_addr.sin_port = htons(xmlData->sslPort);
-    if(inet_aton(xmlData->serverIP, &sslP->server_addr.sin_addr) == 0) {
+    sslP->server_addr.sin_port = htons(jsonData->sslPort);
+    if(inet_aton(jsonData->serverIP, &sslP->server_addr.sin_addr) == 0) {
             log_error(fp, "inet_aton() failed\n");
 			log_error(fp, "SSL ERROR: create in inet_aton"); fflush(fp);
     }
-	log_info(fp, "SSL: Connect to %s", xmlData->serverIP);
+	log_info(fp, "SSL: Connect to %s", jsonData->serverIP);
     if(connect(sslP->sock, (struct sockaddr *)&sslP->server_addr,
                 sizeof(struct sockaddr)) == -1) {
 		log_error(fp, "SSL ERROR: create connecting to server"); fflush(fp);
@@ -59,7 +59,7 @@ initConnectionToServer(sslStruct *sslP, xmlData_t* xmlData) {
         exit(1);
     }
     log_info(fp, "TCP connection created to %s, sock:%d", 
-		xmlData->serverIP, sslP->sock);
+		jsonData->serverIP, sslP->sock);
 	fflush(stdout);
 }
 
@@ -418,7 +418,7 @@ void* recvFunction(void *arg) {
 }
 
 void* sslStart(void *args) {
-	xmlData_t* xmlData = (xmlData_t*)args;
+	jsonData_t* jsonData = (jsonData_t*)args;
 	char filePath[100];
 
 	if (pthread_mutex_init(&sslP.lock, NULL) != 0) {
@@ -429,13 +429,13 @@ void* sslStart(void *args) {
 	} 
 	// ssl_logs
 	sprintf(filePath, "/var/monT/");
-	sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
+	sprintf(&filePath[strlen("/var/monT/")], "%d", jsonData->custID);
 	sprintf(&filePath[strlen(filePath)], "/ssl_logs");
 	fp = fopen(filePath, "a");
 
 	// ssl_stats
 	sprintf(filePath, "/var/monT/");
-	sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
+	sprintf(&filePath[strlen("/var/monT/")], "%d", jsonData->custID);
 	sprintf(&filePath[strlen(filePath)], "/ssl_stats");
 	sslP.fsslStats = fopen(filePath, "a");
 
@@ -443,7 +443,7 @@ void* sslStart(void *args) {
     getSelfIP();
 	sslP.paramP = &param;
 	sslP.fp = fp;
-	sslTestsExec(&sslP, xmlData);
+	sslTestsExec(&sslP, jsonData);
 
 	while(1) {
 		sleep(2);

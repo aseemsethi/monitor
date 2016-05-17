@@ -1,35 +1,33 @@
-This is a Monitor Application v2.0
-
-One of the things that can be tested is SSL. There are many Assessment Tools today that can also be used. One such list of tools is at https://github.com/ssllabs/research/wiki/Assessment-Tools.
-
-A list of cve ids is maintained at: https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=openssl
+This is a Monitor Application v2.0. Testing support for the following are implemented.
+- SSL Functionaland Performance
+- HTTP Performance
+- IKEv2 Functional and Performance
 
 The Monitor Application is a single binary called "mont_cust". This is spawned as follows :
  For SSL Function Test: ./mont_cust 100 ssl
  For SSL Performance Test: ./mont_cust 100 ssl_perf
  For HTTP Test: ./mont_cust 100 http
 
-The SSL Test Process executes all tests, and write:
-- log file in /var/monT/<custID> - ssl_logs, ssl_perf_logs, 
-- stat  file in /var/monT/<custID> - ssl_stats, ssl_perf_stats, 
-
-Example of Config on /var/monT/100/config.xml
-<custID id="100">
-  <serverIP>127.0.0.1</serverIP>
-  <sslPort>4433</sslPort>
-  <sslPerSec>1</sslPerSec>
-  <totalConn>2</totalConn>
-  <helloPerSec>1</helloPerSec>
-  <totalHello>2</totalHello>
-  <httpParallel>2</httpParallel>
-  <httpSerial>2</httpSerial>
-</custID>
+There are many Assessment Tools today that can also be used. One such list of tools is at https://github.com/ssllabs/research/wiki/Assessment-Tools.  A list of cve ids is maintained at: https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=openssl
 
 Logging
 =======
-See all logs (cust, ssl, http) of the customer 100
-./logs 100 [ssl | ssl_perf | http]
+The SSL Test Process executes all tests, and write:
+- log file in /var/monT/<custID> - ssl_logs, ssl_perf_logs, http_logs
+- stat  file in /var/monT/<custID> - ssl_stats, ssl_perf_stats, http_stats
 
+Example of Config on /var/monT/100/config.json
+$ more /var/monT/100/config.json 
+"custID": "100"
+"serverIP": "127.0.0.1"
+"sslPort": "4433"
+"sslPerSec": "1"
+"totalConn": "2"
+"helloPerSec": "1"
+"totalHello": "2"
+"httpVerbose": "0"
+"httpParallel": "2"
+"httpSerial": "2"
 
 SSL Versions and Recommendations
 ================================
