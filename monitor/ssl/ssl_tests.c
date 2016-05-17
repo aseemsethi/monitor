@@ -40,6 +40,8 @@ typedef struct {
 	// 2nd packet exchange
 	int (*send_again)(sslStruct *ssl, param_t *args);
 	int (*verify_again)(sslStruct *ssl, param_t *args, int pkt, int verifyAlertCode);
+	// if verify_again is set to verifyFailed, then if this AlertCode is set to 
+	// non INVALID, the secondRecvdPkt should NOT match, else test fails
 	int secondRecvdPkt;
 	char details[240];
 } sslTests_t;
@@ -427,6 +429,19 @@ int sendHello (sslStruct *sslP, param_t *args) 	{
 	sendData(sslP, buff, length);
 }
 
+int verifyFailed2nd (sslStruct *sslP, param_t *args, int pkt, int verifyAlertCode) { 
+	if (sslP->paramP->handshakeResp & (0x01 << pkt)) {
+		log_debug(fp, "Pkt Recvd 2ndPhase - fail:%d, Recvd:%x", 
+				pkt, sslP->paramP->handshakeResp); fflush(fp);
+		sslTestsResults[args->testId].result = FAIL;
+	} else {
+		log_debug(fp, "Pkt NOT Recvd 2ndPhase - pass:%s, Recvd:%x", 
+				msgToString(pkt), sslP->paramP->handshakeResp); fflush(fp);
+		logRecvdPkts(sslP);  // For logging only
+		sslTestsResults[args->testId].result = PASS;
+	}
+}
+
 int verifyFailed (sslStruct *sslP, param_t *args, int pkt, int verifyAlertCode) { 
 	if (sslP->paramP->handshakeResp & (0x01 << pkt)) {
 		log_debug(fp, "Pkt Recvd.:%d, Recvd:%x", 
@@ -436,7 +451,7 @@ int verifyFailed (sslStruct *sslP, param_t *args, int pkt, int verifyAlertCode) 
 		log_debug(fp, "Pkt NOT Recvd.:%s, Recvd:%x", 
 				msgToString(pkt), sslP->paramP->handshakeResp); fflush(fp);
 		logRecvdPkts(sslP);  // For logging only
-		// In veriFailed, we check if there was an ALERT expected. and if it 
+		// We now check if there was an ALERT expected. and if it 
 		// matches the recevied ALERT msg in the listen thread.
 		if ((verifyAlertCode != INVALID_CODE) && 
 		    (sslP->paramP->verifyAlertCode != INVALID_CODE)) {

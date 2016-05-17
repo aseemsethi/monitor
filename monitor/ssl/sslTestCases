@@ -3,13 +3,13 @@
  */
 sslTests_t sslTests[SSL_NUM_TESTS] = {
 	{	"1_startPositiveTests", 
-		initParams, sendHello, verifyPassed, server_hello, 0,
+		initParams, sendHello, verifyPassed, server_hello, INVALID_CODE,
 		updateStats, sendAgainNull, verifyAgainNull, INVALID_CODE,
 		"Send Client Hello, and expect Server Hello, Certificate and Hello Done messages",
 	},
 	{	"2_sendBadMacFinished",
 		initParams, sendHello, verifyPassed, server_hello, INVALID_CODE,
-		updateStats, sendClientKeyExchange, verifyFailed, finished,
+		updateStats, sendClientKeyExchange, verifyFailed2nd, finished,
 		"Send Client Hello followed by a ClientKeyExchange/ChangeCipherSpec/Finished. The finished is sent un-encrypted. There will be no response from server due to bad decryption of the Finished msg.",
 	},
 	{	"3_ versionInvalidCheck", 
@@ -34,7 +34,7 @@ sslTests_t sslTests[SSL_NUM_TESTS] = {
 	},
 	{	"7_send_serverKeyExchange",
 		initParams, sendHello, verifyPassed, server_hello, INVALID_CODE,
-		updateStats, sendServerKeyExchange, verifyFailed, server_key_exchange,
+		updateStats, sendServerKeyExchange, verifyFailed2nd, server_key_exchange,
 		"Send Client Hello followed by a ServerKeyExchange rather than a ClientKeyExchange. Expect an Alert msg back, with the error mentioning Unexpected Message",
 	}
 };
