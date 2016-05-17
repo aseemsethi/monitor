@@ -31,6 +31,7 @@ jsonData_t* parse (char* id, FILE *flog) {
 		log_debug(flog, "\n Malloc failure while alocation jsonData");
 		return NULL;
 	}
+	jsonData->url[0] = '\0';
 
 	sprintf(filePath, "/var/monT/");
 	sprintf(&filePath[strlen("/var/monT/")], id);
@@ -62,10 +63,17 @@ jsonData_t* parse (char* id, FILE *flog) {
 				printf("\n Parse: truncated JSON string"); return NULL; }
 	} else {
 		char s[20];
-		printf("\n jsmn_parse returned %d", r);
+		printf("\njsmn returned %d tokens", r);
 		for (i = 0; i < r; i++) {
 			strncpy(s, buff + tok[i+1].start,  tok[i+1].end-tok[i+1].start); 
 			s[tok[i+1].end-tok[i+1].start] = '\0';
+			if ((jsoneq(buff, &tok[i], "Params") == 0) || 
+			    (jsoneq(buff, &tok[i], "Params") == 0)) {
+				printf("\n ****Params for: %.*s", tok[i+1].end-tok[i+1].start,
+					buff + tok[i+1].start); 
+				jsonData->httpSerial = strtol(s, NULL,0);
+				i++; continue;
+			} 
 			if (jsoneq(buff, &tok[i], "custID") == 0) {
 				printf("\n custID: %.*s", tok[i+1].end-tok[i+1].start,
 					buff + tok[i+1].start);
@@ -101,6 +109,11 @@ jsonData_t* parse (char* id, FILE *flog) {
 					buff + tok[i+1].start);
 				jsonData->totalHello = strtol(s, NULL,0);
 				i++;
+			} else if (jsoneq(buff, &tok[i], "url") == 0) {
+				printf("\n url: %.*s", tok[i+1].end-tok[i+1].start,
+					buff + tok[i+1].start);
+				strncpy(jsonData->url, buff + tok[i+1].start,  tok[i+1].end-tok[i+1].start); jsonData->url[tok[i+1].end-tok[i+1].start] = '\0';
+				i++;
 			} else if (jsoneq(buff, &tok[i], "httpVerbose") == 0) {
 				printf("\n httpVerbose: %.*s", tok[i+1].end-tok[i+1].start,
 					buff + tok[i+1].start);
@@ -116,7 +129,7 @@ jsonData_t* parse (char* id, FILE *flog) {
 					buff + tok[i+1].start); 
 				jsonData->httpSerial = strtol(s, NULL,0);
 				i++;
-			}
+			} 
 		}
 	}
 	log_debug(flog,"**Customer Config: ID:%d, Server: %s, sslPort: %d, sslPerSec: %d, totalConn: %d, helloPerSec:%d, totalHello:%d, httpParallel:%d, httpSerial:%d, httpVerbose:%d", 

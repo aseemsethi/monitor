@@ -12,7 +12,6 @@
 #include "../common/log.h"
 
 static const char *urls[] = {
-  "http://www.microsoft.com",
   "http://www.opensource.org",
   "http://www.google.com",
   "http://www.yahoo.com",
@@ -33,22 +32,27 @@ static size_t cb(char *d, size_t n, size_t l, void *p)
   return n*l;
 }
 
-CURL* init(CURLM *cm, int i) {
+CURL* init(CURLM *cm, int i, char* url) {
   CURL *eh = curl_easy_init();
+
+  if (i >= CNT) i = 1;  // since we have only these many URLs, 
+						// assign the last one to all remaining handles
  
   // The following disables output to stdout
   curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
 
   curl_easy_setopt(eh, CURLOPT_HEADER, 0L);
-  curl_easy_setopt(eh, CURLOPT_URL, urls[i]);
-  curl_easy_setopt(eh, CURLOPT_PRIVATE, urls[i]);
+  if (url == NULL) {
+    curl_easy_setopt(eh, CURLOPT_URL, urls[i]);
+    curl_easy_setopt(eh, CURLOPT_PRIVATE, urls[i]);
+  } else {
+    curl_easy_setopt(eh, CURLOPT_URL, url);
+    curl_easy_setopt(eh, CURLOPT_PRIVATE, url);
+  }
   curl_easy_setopt(eh, CURLOPT_VERBOSE, verbose);
     /* Ask for filetime */
   curl_easy_setopt(eh, CURLOPT_FILETIME, 1L);
 
-  /* Set the STAT command */ 
-  //curl_easy_setopt(eh, CURLOPT_CUSTOMREQUEST, "STAT");
- 
   curl_multi_add_handle(cm, eh);
 	return eh;
 }
@@ -69,8 +73,15 @@ int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
   multi_handle = curl_multi_init();
  
   /* Allocate one CURL handle per transfer */ 
-  for(i=0; i<httpParallel; i++)
-		handles[i] = init(multi_handle, i);
+  if (strlen(jsonData->url) == 0) {
+    printf("\n No url given, auto assign urls");
+    for(i=0; i<httpParallel; i++)
+		handles[i] = init(multi_handle, i, NULL);
+  } else {
+    printf("\n url given -  assign it to all handles");
+    for(i=0; i<httpParallel; i++)
+		handles[i] = init(multi_handle, i, jsonData->url);
+  }
  
   /* we start some action by calling perform right away */ 
   curl_multi_perform(multi_handle, &still_running);

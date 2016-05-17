@@ -12,9 +12,14 @@ typedef struct {
 	// SSL Params
 	int sslPort;
     int sslPerSec;
+	
+	// SSL Perf Params
     int totalConn;
 	int helloPerSec;
     int totalHello;
+
+	// HTTP Params
+    char url[255];
     int httpParallel;
     int httpSerial;
     int httpVerbose;

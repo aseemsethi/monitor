@@ -2,7 +2,7 @@
 core.*
 mont_client
 mont_server
-mont_cust
+monitor/mont_cust
 monitor/xmlparser/libxmlparse.a
 bin/libxmlparse.a
 
