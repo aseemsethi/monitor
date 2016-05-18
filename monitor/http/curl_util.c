@@ -74,16 +74,17 @@ int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
  
   /* Allocate one CURL handle per transfer */ 
   if (strlen(jsonData->url) == 0) {
-    printf("\n No url given, auto assign urls");
+    log_info(fp, "\n No url given, auto assign urls");
     for(i=0; i<httpParallel; i++)
 		handles[i] = init(multi_handle, i, NULL);
   } else {
-    printf("\n url given -  assign it to all handles");
+    log_info(fp, "\n url given -  assign it to all handles");
     for(i=0; i<httpParallel; i++)
 		handles[i] = init(multi_handle, i, jsonData->url);
   }
  
   /* we start some action by calling perform right away */ 
+  log_info(fhttpStats, "Starting curl perform on multi handle"); fflush(fhttpStats);
   curl_multi_perform(multi_handle, &still_running);
  
   do {

@@ -81,7 +81,7 @@ void* httpStart(void *args) {
 	sprintf(&filePath[strlen("/var/monT/")], "%d", jsonData->custID);
 	sprintf(&filePath[strlen(filePath)], "/http_stats");
 	fhttpStats = fopen(filePath, "a");
-	log_info(fhttpStats, "HTTP started: custID: %d, server:%s", 
+	log_info(fhttpStats, "\n ****HTTP started: custID: %d, server:%s", 
 			jsonData->custID, jsonData->serverIP);
 
 	sprintf(filePath, "/var/monT/");

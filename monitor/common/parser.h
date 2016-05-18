@@ -21,7 +21,7 @@ typedef struct {
 	// HTTP Params
     char url[255];
     int httpParallel;
-    int httpSerial;
+    int pktSize;
     int httpVerbose;
 } jsonData_t;
 

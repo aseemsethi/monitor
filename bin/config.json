@@ -1,0 +1,18 @@
+"Params": "General"
+"custID": "100"
+"serverIP": "127.0.0.1"
+
+"Params": "SSL"
+"sslPort": "4433"
+"sslPerSec": "100"
+
+"Params": "SSL Perf"
+"totalConn": "20"
+"helloPerSec": "10"
+"totalHello": "20"
+
+"Params": "HTTP"
+"url":"www.yahoo.com"
+"httpVerbose": "0"
+"httpParallel": "2"
+"pktSize": "200"

@@ -50,94 +50,62 @@ jsonData_t* parse (char* id, FILE *flog) {
 	jsmn_init(&p);
 	tok = malloc(sizeof(*tok) * tokcount);
 	if (tok == NULL) {
-		printf("\n malloc error in parser");
+		log_error(flog, "malloc error in parser");
 		exit(1);
 	}
     r = jsmn_parse(&p, buff, len, tok, tokcount);
     if (r < 0) {
             if (r == JSMN_ERROR_NOMEM) {
-				printf("\n Parse: Allocate more mem to tok"); return NULL; }
+				log_error(flog, "Parse: Allocate more mem to tok"); return NULL; }
 			if (ret == JSMN_ERROR_INVAL) {
-				printf("\n Parse: invalid JSON string"); return NULL; }
+				log_error(flog, "Parse: invalid JSON string"); return NULL; }
 			if (ret == JSMN_ERROR_PART) {
-				printf("\n Parse: truncated JSON string"); return NULL; }
+				log_error(flog, "Parse: truncated JSON string"); return NULL; }
 	} else {
 		char s[20];
-		printf("\njsmn returned %d tokens", r);
+		log_debug(flog, "jsmn returned %d tokens", r);
 		for (i = 0; i < r; i++) {
 			strncpy(s, buff + tok[i+1].start,  tok[i+1].end-tok[i+1].start); 
 			s[tok[i+1].end-tok[i+1].start] = '\0';
-			if ((jsoneq(buff, &tok[i], "Params") == 0) || 
-			    (jsoneq(buff, &tok[i], "Params") == 0)) {
-				printf("\n ****Params for: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start); 
-				jsonData->httpSerial = strtol(s, NULL,0);
-				i++; continue;
+			log_debug(flog, "%.*s: %.*s", 
+					tok[i].end-tok[i].start, buff + tok[i].start,
+					tok[i+1].end-tok[i+1].start, buff + tok[i+1].start);
+			if (jsoneq(buff, &tok[i], "Params") == 0) {
+				log_debug(flog, "  ****"); i++; continue;
 			} 
 			if (jsoneq(buff, &tok[i], "custID") == 0) {
-				printf("\n custID: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
 				jsonData->custID = strtol(s, NULL,0);
-				i++;
 			} else if (jsoneq(buff, &tok[i], "serverIP") == 0) {
-				printf("\n serverIP: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start); 
-				strncpy(jsonData->serverIP, buff + tok[i+1].start,  tok[i+1].end-tok[i+1].start); jsonData->serverIP[tok[i+1].end-tok[i+1].start] = '\0';
-				i++;
+				strcpy(jsonData->serverIP, s); 
 			} else if (jsoneq(buff, &tok[i], "sslPort") == 0) {
-				printf("\n sslPort: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
-				jsonData->sslPort = strtol(s, NULL,0);
-				i++;
+				jsonData->sslPort = strtol(s, NULL,0); 
 			} else if (jsoneq(buff, &tok[i], "sslPerSec") == 0) {
-				printf("\n sslPerSec: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
 				jsonData->sslPerSec = strtol(s, NULL,0);
-				i++;
 			} else if (jsoneq(buff, &tok[i], "totalConn") == 0) {
-				printf("\n totalConn: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
-				jsonData->totalConn = strtol(s, NULL,0);
-				i++;
+				jsonData->totalConn = strtol(s, NULL,0); 
 			} else if (jsoneq(buff, &tok[i], "helloPerSec") == 0) {
-				printf("\n helloPerSec: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
 				jsonData->helloPerSec = strtol(s, NULL,0);
-				i++;
 			} else if (jsoneq(buff, &tok[i], "totalHello") == 0) {
-				printf("\n totalHello: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
-				jsonData->totalHello = strtol(s, NULL,0);
-				i++;
+				jsonData->totalHello = strtol(s, NULL,0); 
 			} else if (jsoneq(buff, &tok[i], "url") == 0) {
-				printf("\n url: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
 				strncpy(jsonData->url, buff + tok[i+1].start,  tok[i+1].end-tok[i+1].start); jsonData->url[tok[i+1].end-tok[i+1].start] = '\0';
-				i++;
 			} else if (jsoneq(buff, &tok[i], "httpVerbose") == 0) {
-				printf("\n httpVerbose: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
 				jsonData->httpVerbose = strtol(s, NULL,0);
-				i++;
 			} else if (jsoneq(buff, &tok[i], "httpParallel") == 0) {
-				printf("\n httpParallel: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start);
 				jsonData->httpParallel = strtol(s, NULL,0);
-				i++;
-			} else if (jsoneq(buff, &tok[i], "httpSerial") == 0) {
-				printf("\n httpSerial: %.*s", tok[i+1].end-tok[i+1].start,
-					buff + tok[i+1].start); 
-				jsonData->httpSerial = strtol(s, NULL,0);
-				i++;
+			} else if (jsoneq(buff, &tok[i], "pktSize") == 0) {
+				jsonData->pktSize = strtol(s, NULL,0);
 			} 
+			i++; 
 		}
 	}
-	log_debug(flog,"**Customer Config: ID:%d, Server: %s, sslPort: %d, sslPerSec: %d, totalConn: %d, helloPerSec:%d, totalHello:%d, httpParallel:%d, httpSerial:%d, httpVerbose:%d", 
+	log_debug(flog,"**Customer Config: ID:%d, Server: %s, sslPort: %d, sslPerSec: %d, totalConn: %d, helloPerSec:%d, totalHello:%d, httpParallel:%d, pktSize:%d, httpVerbose:%d", 
 	jsonData->custID, 
 	jsonData->serverIP, jsonData->sslPort, 
 	jsonData->sslPerSec, jsonData->totalConn, 
 	jsonData->helloPerSec, jsonData->totalHello,
-	jsonData->httpParallel, jsonData->httpSerial, jsonData->httpVerbose);
+	jsonData->httpParallel, jsonData->pktSize, jsonData->httpVerbose);
+	fflush(flog);
 	fclose(fp);
 	return jsonData;
 }
