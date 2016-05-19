@@ -1,4 +1,0 @@
-./mont_client localhost ./mont_cust ping 100 start
-./mont_client localhost ./mont_cust ssl  100  start
-./mont_client localhost ./mont_cust ping 200 dump
-

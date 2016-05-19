@@ -2,3 +2,5 @@ echo "Executing ssl function tests"
 ./mont_cust 100 ssl &
 echo "Executing ssl performance tests"
 ./mont_cust 100 ssl_perf &
+echo "Executing http tests"
+./mont_cust 100 http &
