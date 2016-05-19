@@ -95,6 +95,8 @@ jsonData_t* parse (char* id, FILE *flog) {
 				jsonData->httpParallel = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "pktSize") == 0) {
 				jsonData->pktSize = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "httpSessions") == 0) {
+				jsonData->httpSessions = strtol(s, NULL,0);
 			} 
 			i++; 
 		}

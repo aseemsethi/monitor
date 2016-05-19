@@ -16,6 +16,12 @@ static const char *urls[] = {
   "http://www.google.com",
   "http://www.yahoo.com",
   "http://www.ibm.com",
+  "http://www.aryaka.com",
+  "http://www.sophos.com",
+  "http://www.cisco.com",
+  "http://www.amazon.com",
+  "http://www.ebay.com",
+  "http://www.sapnaonline.com",
 };
 #define CNT sizeof(urls)/sizeof(char*)  
 #define MAX_PARALLEL 100
@@ -68,6 +74,7 @@ int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
   int msgs_left; /* how many messages are left */ 
   int httpParallel = jsonData->httpParallel;
   verbose = jsonData->httpVerbose;
+  int completedParallel = 0;
 
   /* init a multi stack */ 
   multi_handle = curl_multi_init();
@@ -82,9 +89,10 @@ int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
     for(i=0; i<httpParallel; i++)
 		handles[i] = init(multi_handle, i, jsonData->url);
   }
- 
+again: 
   /* we start some action by calling perform right away */ 
-  log_info(fhttpStats, "Starting curl perform on multi handle"); fflush(fhttpStats);
+  log_info(fhttpStats, "Starting multi handle: %d parallel sessions", httpParallel);
+  fflush(fhttpStats);
   curl_multi_perform(multi_handle, &still_running);
  
   do {
@@ -172,18 +180,27 @@ int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
         log_info(fhttpStats, "Stats: respcode:%d, redirect-count:%d, dlSpeed:%.2fKB/sec, filesize:%0.0f, filetime:%s", 
 			respcode, redirect, dlSpeed/1024, filesize, ctime(&filetime)); 
 		fflush(fhttpStats);
-        curl_multi_remove_handle(multi_handle, e);
+        //curl_multi_remove_handle(multi_handle, e);
         //curl_easy_cleanup(e);
       } else {
         log_error(fp, "E: CURLMsg (%d)\n", msg->msg); fflush(fp);
       }	
   }
+
+/*
+  completedParallel += httpParallel;
+  if (completedParallel < jsonData->httpSessions) {
+    goto again;
+  }
+*/
  
   curl_multi_cleanup(multi_handle);
  
   /* Free the CURL handles */ 
-  for(i=0; i<httpParallel; i++)
+  for(i=0; i<httpParallel; i++) {
+    curl_multi_remove_handle(multi_handle, handles[i]);
     curl_easy_cleanup(handles[i]);
+  }
  
   return 0;
 }
