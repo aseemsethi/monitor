@@ -11,7 +11,8 @@ csrc = $(wildcard ssl/*.c)  \
 	$(wildcard common/*.c)  \
 	$(wildcard ssl_perf/*.c) \
 	$(wildcard http/*.c) \
-	$(wildcard ikev2/*.c) 
+	$(wildcard ikev2/*.c) \
+	$(wildcard bgp/*.c) 
 
 obj = $(csrc:.c=.o)
 

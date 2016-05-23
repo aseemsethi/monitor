@@ -24,5 +24,8 @@ typedef struct {
     int httpParallel;
     int pktSize;
     int httpVerbose;
+
+	// BGP Params
+    char routerID[30];
 } jsonData_t;
 

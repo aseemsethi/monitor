@@ -18,12 +18,26 @@ jsonData_t* parse (char*, FILE *flog);
 void* sslStart(void *args);
 void* sslPerfStart(void *args);
 void* httpStart(void *args);
+void* bgpStart(void *args);
+
+startBgpThread (jsonData_t* jsonData) {
+	struct stat st;
+	char filePath[100];
+	
+	// Create BGP thread
+	log_debug(fmont, "CUST: Create BGP thread.."); fflush(fmont);
+	if (pthread_create(&httpPID, NULL, bgpStart, (void*)jsonData)) {
+		log_error(fmont, "Error creating BGP Thread"); fflush(fmont);
+		exit(1);
+	}
+	fflush(fmont);
+}
 
 startHttpThread (jsonData_t* jsonData) {
 	struct stat st;
 	char filePath[100];
 	
-	// Create SSL thread
+	// Create HTTP thread
 	log_debug(fmont, "CUST: Create HTTP thread.."); fflush(fmont);
 	if (pthread_create(&httpPID, NULL, httpStart, (void*)jsonData)) {
 		log_error(fmont, "Error creating HTTP Thread"); fflush(fmont);
@@ -116,6 +130,10 @@ main(int argc, char *argv[]) {
 		// mont_cust 100 ssl_perf
 		log_info(fmont, "HTTP Testing..");
 		startHttpThread(jsonData);
+	} else if(strcmp(argv[2], "bgp") == 0) {
+		// mont_cust 100 ssl_perf
+		log_info(fmont, "BGP Testing..");
+		startBgpThread(jsonData);
 	}
 	fflush(fmont);
 error:

@@ -97,6 +97,8 @@ jsonData_t* parse (char* id, FILE *flog) {
 				jsonData->pktSize = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "httpSessions") == 0) {
 				jsonData->httpSessions = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "routerID") == 0) {
+				strcpy(jsonData->routerID, s); 
 			} 
 			i++; 
 		}
