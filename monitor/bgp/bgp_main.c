@@ -92,13 +92,51 @@ initBgpConnection(bgp_t *bgp, jsonData_t* jsonData) {
     fflush(fp);
 }
 
+void *bgpListener(bgp_t* bgp) {
+	int running = 1;
+
+	printf("\nBGP Listener: started"); fflush(stdout);
+	while(running){
+		struct timeval selTimeout;
+		selTimeout.tv_sec = 1;       /* timeout (secs.) */
+		selTimeout.tv_usec = 0;            /* 0 microseconds */
+		fd_set readSet;
+		FD_ZERO(&readSet);
+		FD_SET(bgp->sock, &readSet);
+
+	int numReady = select(FD_SETSIZE, &readSet, NULL, NULL, &selTimeout);
+	printf(".");
+	if(numReady > 0){
+		if (FD_ISSET (bgp->sock, &readSet)) {
+			//printf("\n BGP Data recvd...");
+		}
+		char buffer[100] = {'\0'};
+		int bytesRead = read(bgp->sock, &buffer, sizeof(buffer));
+		printf(" BytesRead %i : %s", bytesRead, buffer);
+		if(bytesRead == 0) {
+			running = 0;
+			perror("\nBytes Read=0:");
+		} else if(bytesRead < 0) {
+			perror("\nBytesRead < 0, Shutdown:"); fflush(stdout);
+		}
+		}
+	}
+	printf("\nBGP Listener: stopped"); fflush(stdout);
+}
+
 int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
+	pthread_t threadPID;
+
 	fp = logs;
 	fbgpStats = stats;
 	log_info(fp, "\nBGP started..."); fflush(fp);
 
 	initBgpConnection(&bgp, jsonData);
-	log_info(fp, "\nBGP end..."); fflush(fp);
+	if (pthread_create(&threadPID, NULL, bgpListener, &bgp)) {
+		log_info(fp, "\nError creating BGP Listener Thread"); fflush(stdout);
+		exit(1);
+	}
 	sendOpen(&bgp, jsonData);
+	log_info(fp, "\nBGP end..."); fflush(fp);
 	while (1) sleep(2);
 }

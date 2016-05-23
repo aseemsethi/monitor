@@ -44,8 +44,8 @@ void bgpDisplay (void *buf, int bytes, jsonData_t* jsonData) {
     fflush(fp);
 }
 
+
 void* bgpStart(void *args) {
-	pthread_t threadPID;
 	char filePath[100];
 
 	jsonData_t* jsonData = (jsonData_t*)args;
@@ -64,12 +64,6 @@ void* bgpStart(void *args) {
 	log_info(fp, "**  BGP started: custID: %d, server:%s **", 
 			jsonData->custID, jsonData->serverIP);
 
-/*
-	if (pthread_create(&threadPID, NULL, bgpListener, jsonData)) {
-		log_info(fp, "\nError creating Listener Thread"); fflush(stdout);
-		exit(1);
-	}
-*/
 
 	bgp_main(jsonData, fbgpStats, fp);
 
