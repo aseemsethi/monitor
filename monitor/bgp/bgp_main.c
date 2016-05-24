@@ -10,11 +10,14 @@
 #include <arpa/inet.h> // for inet_ntoa
 #include <netinet/ip_icmp.h>
 #include "bgp.h"
+#include <fcntl.h>
+#include <errno.h>
 
 FILE *fp;
 FILE *fbgpStats;
 
 typedef struct {
+	jsonData_t *jsonData;
     struct sockaddr_in routerID;
 	int 	holdTime;
     struct sockaddr_in server_addr;
@@ -43,9 +46,23 @@ putBgpHdr(char *buff, int type) {
 	buff[18] = type;
 }
 
-sendOpen (bgp_t *bgp, jsonData_t* jsonData) {
+sendKeepalive (bgp_t *bgp) {
 	struct bgp_open open;
 
+	printf("\nBGP: Send KEEPALIVE"); fflush(stdout);
+	memset(open.bgpo_marker, 0xFF, 16);
+	open.bgpo_len = htons(19);
+	open.bgpo_type = BGP_KEEPALIVE;
+
+	sendBgpData(bgp, (uchar*)&open, 19);
+}
+
+sendOpen (bgp_t *bgp) {
+	struct bgp_open open;
+	int i;
+	jsonData_t *jsonData = bgp->jsonData;
+
+	printf("\nBGP: Send OPEN"); fflush(stdout);
 	memset(open.bgpo_marker, 0xFF, 16);
 	open.bgpo_len = htons(29);
 	open.bgpo_type = BGP_OPEN;
@@ -57,15 +74,18 @@ sendOpen (bgp_t *bgp, jsonData_t* jsonData) {
 		log_error(fp, "BGP: inet_aton failed");
 		exit(1);
 	}
-	printf("\n router ID = %d", bgp->routerID.sin_addr.s_addr);
+	printf("\n router ID = %x", bgp->routerID.sin_addr.s_addr);
 	open.bgpo_id = bgp->routerID.sin_addr.s_addr;
 	open.bgpo_optlen = 0;
 
+	for (i=0;i<29;i++)
+		printf(" %2X", ((uchar*)&open)[i]);
 	sendBgpData(bgp, (uchar*)&open, 29);
 }
 
 initBgpConnection(bgp_t *bgp, jsonData_t* jsonData) {
     struct sockaddr_in;
+	int arg, err;
 
     if((bgp->sock=socket(AF_INET, SOCK_STREAM, 0)) == -1) {
             perror("socket:");
@@ -79,14 +99,46 @@ initBgpConnection(bgp_t *bgp, jsonData_t* jsonData) {
             log_error(fp, "BGP ERROR: create in inet_aton"); fflush(fp);
     }
     log_info(fp, "BGP: Connect to %s", jsonData->serverIP); fflush(fp);
-    if(connect(bgp->sock, (struct sockaddr *)&bgp->server_addr,
-                sizeof(struct sockaddr)) == -1) {
+	// Set non-blocking 
+	if( (arg = fcntl(bgp->sock, F_GETFL, NULL)) < 0) { 
+		perror("F_GETFL:");
+		exit(0); 
+	} 
+	arg |= O_NONBLOCK; 
+	if( fcntl(bgp->sock, F_SETFL, arg) < 0) { 
+		perror("F_SETFL:");
+		exit(0); 
+	} 
+    err = connect(bgp->sock, (struct sockaddr *)&bgp->server_addr,
+                sizeof(struct sockaddr));
+	if (errno != EINPROGRESS) {
+		// Note: connect on blocking socket returns EINPROGRESS
         log_error(fp, "BGP ERROR: create connecting to server"); fflush(fp);
         log_error(fbgpStats, "BGP ERROR: create connecting to server");
         fflush(fbgpStats);
-        perror("Connect");
+        perror("Connect Error:");
         exit(1);
-    }
+    } else {
+		/* struct timeval stTv;
+		fd_set write_fd; stTv.tv_sec = 20; stTv.tv_usec = 0;
+        FD_ZERO(&write_fd); FD_SET(bgp->sock,&write_fd);
+        select((bgp->sock+1), NULL, &write_fd, NULL, &stTv);
+		*/
+//http://stackoverflow.com/questions/10187347/async-connect-and-disconnect-with-epoll-linux/10194883#10194883
+		int result;
+		socklen_t result_len = sizeof(result);
+		if (getsockopt(bgp->sock, SOL_SOCKET, SO_ERROR, 
+				&result, &result_len) < 0) {
+			// error, fail somehow, close socket
+			return;
+		}
+		if (result != 0) {
+			// connection failed; error code is in 'result'
+			return;
+		}
+		// socket is ready for read()/write()
+		log_info(fp, "\n TCP Connected.."); fflush(fp);
+	}
     log_info(fp, "BGP TCP connection created to %s, sock:%d",
         jsonData->serverIP, bgp->sock);
     fflush(fp);
@@ -95,30 +147,50 @@ initBgpConnection(bgp_t *bgp, jsonData_t* jsonData) {
 void *bgpListener(bgp_t* bgp) {
 	int running = 1;
 
-	printf("\nBGP Listener: started"); fflush(stdout);
+
+	log_info(fp, "\nBGP Listener: started"); fflush(fp);
 	while(running){
 		struct timeval selTimeout;
-		selTimeout.tv_sec = 1;       /* timeout (secs.) */
-		selTimeout.tv_usec = 0;            /* 0 microseconds */
+		selTimeout.tv_sec = 5;       /* timeout (secs.) */
+		selTimeout.tv_usec = 0;
 		fd_set readSet;
 		FD_ZERO(&readSet);
 		FD_SET(bgp->sock, &readSet);
 
-	int numReady = select(FD_SETSIZE, &readSet, NULL, NULL, &selTimeout);
-	printf(".");
-	if(numReady > 0){
-		if (FD_ISSET (bgp->sock, &readSet)) {
-			//printf("\n BGP Data recvd...");
-		}
-		char buffer[100] = {'\0'};
-		int bytesRead = read(bgp->sock, &buffer, sizeof(buffer));
-		printf(" BytesRead %i : %s", bytesRead, buffer);
-		if(bytesRead == 0) {
-			running = 0;
-			perror("\nBytes Read=0:");
-		} else if(bytesRead < 0) {
-			perror("\nBytesRead < 0, Shutdown:"); fflush(stdout);
-		}
+		int numReady = select(FD_SETSIZE, &readSet, NULL, NULL, &selTimeout);
+		if(numReady > 0){
+			if (FD_ISSET (bgp->sock, &readSet)) {
+				//printf("\n BGP Data recvd...");
+			}
+			char buffer[100] = {'\0'};
+			int i;
+			int bytesRead = read(bgp->sock, &buffer, sizeof(buffer));
+			if(bytesRead < 0) {
+				perror("\nBytesRead < 0, Shutdown:"); fflush(stdout);
+				running = 0;
+			} else if (bytesRead == 0) {
+			// TBD: For some reason, the select returns immediately and 
+			// ignores the timeout, even though the sock is in NONBLOCK
+			// mode. For now, ignoring this and continuing.
+				continue;
+			}
+			printf("\nBytesRead %i", bytesRead);
+			for (i=0;i<bytesRead;i++)
+				printf(" %2X", buffer[i]);
+			if (memcmp(buffer, "1111111111111111", 16) == 0) {
+				printf("\nBGP Marker recvd correctly");
+			} 
+			switch (buffer[18]) {
+				case 1: log_info(fp, "OPEN recvd"); 
+						sendOpen(bgp);
+						sendKeepalive(bgp); 
+						break;
+				case 2: log_info(fp, "UPDATE recvd"); break;
+				case 3: log_info(fp, "NOTIFICATION recvd"); break;
+				case 4: log_info(fp, "KEEPALIVE recvd"); break;
+				default: log_info(fp, "Unknown BGP Type recvd");
+			}
+			fflush(fp);
 		}
 	}
 	printf("\nBGP Listener: stopped"); fflush(stdout);
@@ -131,12 +203,13 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 	fbgpStats = stats;
 	log_info(fp, "\nBGP started..."); fflush(fp);
 
+	bgp.jsonData = jsonData;
 	initBgpConnection(&bgp, jsonData);
 	if (pthread_create(&threadPID, NULL, bgpListener, &bgp)) {
 		log_info(fp, "\nError creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	sendOpen(&bgp, jsonData);
-	log_info(fp, "\nBGP end..."); fflush(fp);
+	sleep(1);
+	//sendOpen(&bgp);
 	while (1) sleep(2);
 }
