@@ -24,6 +24,9 @@ jsonData_t* parse (char* id, FILE *flog) {
 	char filePath[100];
 	jsonData_t* jsonData;
 	jsmntok_t *t;
+	int nlriIndex = 0;
+	int pathIndex = 0;
+	int wIndex = 0;
 
 	// jsonData is returnd to the caller, that needs to free it
 	jsonData = malloc(sizeof(jsonData_t));
@@ -97,9 +100,33 @@ jsonData_t* parse (char* id, FILE *flog) {
 				jsonData->pktSize = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "httpSessions") == 0) {
 				jsonData->httpSessions = strtol(s, NULL,0);
+// BGP Stuff
 			} else if (jsoneq(buff, &tok[i], "routerID") == 0) {
 				strcpy(jsonData->routerID, s); 
-			} 
+			} else if (jsoneq(buff, &tok[i], "withdrawn len") == 0) {
+				jsonData->withdrawnLen = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "withdrawn prefix") == 0) {
+				jsonData->withdrawnPrefix[wIndex] = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "withdrawn route") == 0) {
+				strcpy(&jsonData->withdrawnRoute[wIndex][0], s); 
+				wIndex++;
+// BGP Stuff - path attributes
+			} else if (jsoneq(buff, &tok[i], "path attribute len") == 0) {
+				jsonData->pathAttrLen = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "path flag") == 0) {
+				jsonData->pathFlag[pathIndex] = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "path type") == 0) {
+				jsonData->pathType[pathIndex] = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "path len") == 0) {
+				jsonData->pathLen[pathIndex] = strtol(s, NULL,0);
+				pathIndex++;
+// BGP Stuff - NRI - only 1 allowed as of now
+			} else if (jsoneq(buff, &tok[i], "nlri len") == 0) {
+				jsonData->nlriLen = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "nlri prefix") == 0) {
+				strcpy(jsonData->nlriPrefix, s); 
+				nlriIndex++; // not used as of now - TBD
+			}
 			i++; 
 		}
 	}
@@ -111,6 +138,9 @@ jsonData_t* parse (char* id, FILE *flog) {
 	jsonData->httpParallel, jsonData->pktSize, jsonData->httpVerbose);
 	fflush(flog);
 	fclose(fp);
+	jsonData->nlriIndex =  nlriIndex;
+	jsonData->pathIndex =  pathIndex;
+	jsonData->wIndex =  wIndex;
 	return jsonData;
 }
 

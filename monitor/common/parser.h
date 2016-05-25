@@ -27,5 +27,15 @@ typedef struct {
 
 	// BGP Params
     char routerID[30];
+	int withdrawnLen;
+	int withdrawnPrefix[4];
+	char withdrawnRoute[4][20];
+	int pathAttrLen;
+	int pathFlag[4]; int pathType[4]; int pathLen[4];
+	int nlriLen;
+	char nlriPrefix[20];
+	int nlriIndex;
+	int pathIndex;
+	int wIndex;
 } jsonData_t;
 

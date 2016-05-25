@@ -36,7 +36,7 @@ sendBgpData (bgp_t *bgp, uchar *ptr, int length) {
     if(sent == -1) {
             perror(" - send error: ");
     } else {
-            log_debug(fp, " :%d Bytes", sent);
+            //log_debug(fp, " :%d Bytes", sent);
     }
     fflush(fp);
 }
@@ -49,7 +49,7 @@ putBgpHdr(char *buff, int type) {
 sendKeepalive (bgp_t *bgp) {
 	struct bgp_open open;
 
-	printf("\nBGP: Send KEEPALIVE"); fflush(stdout);
+	log_info(fp, "BGP: Send KEEPALIVE"); fflush(stdout);
 	memset(open.bgpo_marker, 0xFF, 16);
 	open.bgpo_len = htons(19);
 	open.bgpo_type = BGP_KEEPALIVE;
@@ -62,7 +62,7 @@ sendOpen (bgp_t *bgp) {
 	int i;
 	jsonData_t *jsonData = bgp->jsonData;
 
-	printf("\nBGP: Send OPEN"); fflush(stdout);
+	log_info(fp, "BGP: Send OPEN"); fflush(stdout);
 	memset(open.bgpo_marker, 0xFF, 16);
 	open.bgpo_len = htons(29);
 	open.bgpo_type = BGP_OPEN;
@@ -74,13 +74,34 @@ sendOpen (bgp_t *bgp) {
 		log_error(fp, "BGP: inet_aton failed");
 		exit(1);
 	}
-	printf("\n router ID = %x", bgp->routerID.sin_addr.s_addr);
+	log_info(fp, "BGP self router ID = %x", bgp->routerID.sin_addr.s_addr);
 	open.bgpo_id = bgp->routerID.sin_addr.s_addr;
 	open.bgpo_optlen = 0;
 
 	for (i=0;i<29;i++)
 		printf(" %2X", ((uchar*)&open)[i]);
 	sendBgpData(bgp, (uchar*)&open, 29);
+}
+
+bgpExecTests(bgp_t *bgp) {
+	jsonData_t *jsonData = bgp->jsonData;
+	int i;
+
+	sleep(1);
+	// Send Update Message
+	printf("\n Withdran len = %d", jsonData->withdrawnLen);
+	for(i=0;i<jsonData->wIndex;i++) {
+		printf("\n Withdran prefix:%d, route:%s", 
+			jsonData->withdrawnPrefix[i], jsonData->withdrawnRoute);
+	}
+	printf("\n Path Attr len = %d", jsonData->pathAttrLen);
+	for(i=0;i<jsonData->pathIndex;i++) {
+		printf("\n Path Attributes: Flag:%d, Type:%d, Len:%d",
+			jsonData->pathFlag[i], jsonData->pathType[i], jsonData->pathLen[i]);
+	}
+	printf("\n NLRI len = %d, prefix:%s",
+			jsonData->nlriLen, jsonData->nlriPrefix);
+	fflush(stdout);
 }
 
 initBgpConnection(bgp_t *bgp, jsonData_t* jsonData) {
@@ -137,7 +158,7 @@ initBgpConnection(bgp_t *bgp, jsonData_t* jsonData) {
 			return;
 		}
 		// socket is ready for read()/write()
-		log_info(fp, "\n TCP Connected.."); fflush(fp);
+		//log_info(fp, "TCP Connected.."); fflush(fp);
 	}
     log_info(fp, "BGP TCP connection created to %s, sock:%d",
         jsonData->serverIP, bgp->sock);
@@ -148,7 +169,7 @@ void *bgpListener(bgp_t* bgp) {
 	int running = 1;
 
 
-	log_info(fp, "\nBGP Listener: started"); fflush(fp);
+	log_info(fp, "BGP Listener: started"); fflush(fp);
 	while(running){
 		struct timeval selTimeout;
 		selTimeout.tv_sec = 5;       /* timeout (secs.) */
@@ -177,6 +198,7 @@ void *bgpListener(bgp_t* bgp) {
 			printf("\nBytesRead %i", bytesRead);
 			for (i=0;i<bytesRead;i++)
 				printf(" %2X", buffer[i]);
+			fflush(stdout);
 			if (memcmp(buffer, "1111111111111111", 16) == 0) {
 				printf("\nBGP Marker recvd correctly");
 			} 
@@ -193,7 +215,7 @@ void *bgpListener(bgp_t* bgp) {
 			fflush(fp);
 		}
 	}
-	printf("\nBGP Listener: stopped"); fflush(stdout);
+	log_error(fp, "\nBGP Listener: stopped"); fflush(stdout);
 }
 
 int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
@@ -201,15 +223,14 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 
 	fp = logs;
 	fbgpStats = stats;
-	log_info(fp, "\nBGP started..."); fflush(fp);
+	log_info(fp, "BGP started..."); fflush(fp);
 
 	bgp.jsonData = jsonData;
 	initBgpConnection(&bgp, jsonData);
 	if (pthread_create(&threadPID, NULL, bgpListener, &bgp)) {
-		log_info(fp, "\nError creating BGP Listener Thread"); fflush(stdout);
+		log_info(fp, "Error creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	sleep(1);
-	//sendOpen(&bgp);
+	bgpExecTests(&bgp);
 	while (1) sleep(2);
 }
