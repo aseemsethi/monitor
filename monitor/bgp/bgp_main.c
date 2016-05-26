@@ -57,6 +57,39 @@ sendKeepalive (bgp_t *bgp) {
 	sendBgpData(bgp, (uchar*)&open, 19);
 }
 
+sendUpdate (bgp_t *bgp) {
+	struct bgp_update update;
+	struct bgp_withdrawn *w;
+	int i, len, index;
+	jsonData_t *jsonData = bgp->jsonData;
+    struct sockaddr_in addr;
+
+	log_info(fp, "BGP: Send UPDATE"); fflush(stdout);
+	memset(update.bgpo_marker, 0xFF, 16);
+	update.bgpo_type = BGP_UPDATE;
+	update.withdrawnLen = htons(jsonData->withdrawnLen);
+	len = 21;  // 19 bytes fixed + 2 bytes for len of WithdrawnLen
+	len += jsonData->withdrawnLen;
+
+	w = (struct bgp_withdrawn*)update.ext;
+	w->withdrawnPrefix = jsonData->withdrawnPrefix[0];
+
+	index = w->withdrawnPrefix/8;
+	for (i=0; i<index; i++)
+		w->withdrawnRoute[i] =  jsonData->withdrawnRoute[0][i*2] - '0';
+
+	index += 1; // 1 for length of withdrawnPrefix
+	// Now put in the length for Path Attributes
+	update.ext[index++] = 0; len++;
+	update.ext[index++] = 0; len++;
+	update.bgpo_len = htons(len);
+
+	printf("\nBGP UPDATE: Len:%d", len);
+	for (i=0;i<len;i++)
+		printf(" %2X", ((uchar*)&update)[i]);
+	sendBgpData(bgp, (uchar*)&update, len);
+}
+
 sendOpen (bgp_t *bgp) {
 	struct bgp_open open;
 	int i;
@@ -78,8 +111,8 @@ sendOpen (bgp_t *bgp) {
 	open.bgpo_id = bgp->routerID.sin_addr.s_addr;
 	open.bgpo_optlen = 0;
 
-	for (i=0;i<29;i++)
-		printf(" %2X", ((uchar*)&open)[i]);
+	//for (i=0;i<29;i++)
+	//	printf(" %2X", ((uchar*)&open)[i]);
 	sendBgpData(bgp, (uchar*)&open, 29);
 }
 
@@ -89,10 +122,10 @@ bgpExecTests(bgp_t *bgp) {
 
 	sleep(1);
 	// Send Update Message
-	printf("\n Withdran len = %d", jsonData->withdrawnLen);
+	printf("\n Withdrawn len = %d", jsonData->withdrawnLen);
 	for(i=0;i<jsonData->wIndex;i++) {
-		printf("\n Withdran prefix:%d, route:%s", 
-			jsonData->withdrawnPrefix[i], jsonData->withdrawnRoute);
+		printf("\n Withdrawn prefix:%d, route:%s", 
+			jsonData->withdrawnPrefix[i], jsonData->withdrawnRoute[i]);
 	}
 	printf("\n Path Attr len = %d", jsonData->pathAttrLen);
 	for(i=0;i<jsonData->pathIndex;i++) {
@@ -207,7 +240,10 @@ void *bgpListener(bgp_t* bgp) {
 						sendOpen(bgp);
 						sendKeepalive(bgp); 
 						break;
-				case 2: log_info(fp, "UPDATE recvd"); break;
+				case 2: 
+						log_info(fp, "UPDATE recvd");
+						sendUpdate(bgp);
+						break;
 				case 3: log_info(fp, "NOTIFICATION recvd"); break;
 				case 4: log_info(fp, "KEEPALIVE recvd"); break;
 				default: log_info(fp, "Unknown BGP Type recvd");
@@ -232,5 +268,6 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 		exit(1);
 	}
 	bgpExecTests(&bgp);
+	sendUpdate(&bgp);
 	while (1) sleep(2);
 }

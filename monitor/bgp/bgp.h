@@ -67,6 +67,25 @@ struct bgp_open {
     /* options should follow */
 };
 
+/* BGP OPEN message */
+struct __attribute__((packed, aligned(1))) bgp_update {
+    guint8 bgpo_marker[BGP_MARKER_SIZE];
+    guint16 bgpo_len;
+    guint8 bgpo_type;
+    guint16 withdrawnLen;
+	guint8 ext[100];
+};
+struct  __attribute__((packed, aligned(1))) bgp_withdrawn {
+    guint8 withdrawnPrefix;
+    guint8 withdrawnRoute[4];
+};
+struct bgp_pathAttr {
+    guint16 pathAttr_len;
+    guint8 flag;
+    guint8 type;
+    guint8 len;
+};
+
 /* BGP NOTIFICATION message */
 struct bgp_notification {
     guint8 bgpn_marker[BGP_MARKER_SIZE];
