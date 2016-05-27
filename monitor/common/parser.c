@@ -117,9 +117,14 @@ jsonData_t* parse (char* id, FILE *flog) {
 				jsonData->pathFlag[pathIndex] = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "path type") == 0) {
 				jsonData->pathType[pathIndex] = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "path value") == 0) {
+				jsonData->pathValue[pathIndex] = strtol(s, NULL,0);
+				pathIndex++;
+			} else if (jsoneq(buff, &tok[i], "path value nexthop") == 0) {
+				strcpy(&jsonData->pathValueNextHop[pathIndex][0], s); 
+				pathIndex++;
 			} else if (jsoneq(buff, &tok[i], "path len") == 0) {
 				jsonData->pathLen[pathIndex] = strtol(s, NULL,0);
-				pathIndex++;
 // BGP Stuff - NRI - only 1 allowed as of now
 			} else if (jsoneq(buff, &tok[i], "nlri len") == 0) {
 				jsonData->nlriLen = strtol(s, NULL,0);

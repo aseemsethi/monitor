@@ -18,16 +18,49 @@ The SSL Test Process executes all tests, and write:
 
 Example of Config on /var/monT/100/config.json
 $ more /var/monT/100/config.json 
+"Params": "General"
 "custID": "100"
 "serverIP": "127.0.0.1"
+"#serverIP": "192.168.1.107"
+
+"Params": "SSL"
 "sslPort": "4433"
-"sslPerSec": "1"
-"totalConn": "2"
-"helloPerSec": "1"
-"totalHello": "2"
+"sslPerSec": "100"
+
+"Params": "SSL Perf"
+"totalConn": "20"
+"helloPerSec": "10"
+"totalHello": "20"
+
+"Params": "HTTP"
+"#url":"http://www.a1.test2.com/200.txt"
+"url":"http://www.yahoo.com"
 "httpVerbose": "0"
+"httpSessions": "4"
 "httpParallel": "2"
-"httpSerial": "2"
+"pktSize": "200"
+
+"Params": "BGP"
+"routerID":192.168.1.100
+"withdrawn len": "9"
+"withdrawn prefix": "32"
+"withdrawn route": "1.2.3.4"
+"withdrawn prefix": "24"
+"withdrawn route": "5.6.7"
+"path attribute len":"3"
+"path flag": "40"
+"path type": "2"
+"path len": "0"
+"nlri len":"24"
+"nlri prefix":"1.2.0"
+
+BGP Tool
+========
+Config: Set routerID to be the ID of you own BGP machine, i.e. this simulator
+"withdrawn Len" - is the len of bytes following this field, and consists of 1 or more pairs of "withdrawn prefix" + "withdrawn route".
+Ensure tha the "withdrawn len" is set correctly to be the number of bytes following this field, that consists of prefix+route pairs.
+Running: Run the bgp tool by "./mont_cust 100 bgp". The tool first connects using TCP to the peer router, given by the "server IP" in the General Section at top of the config file.
+Then it sends an BGP Update message to the peer, with the optionsprovided in the config file, i.e. Withdrawn Routes and Advertised routes. 
 
 SSL Versions and Recommendations
 ================================

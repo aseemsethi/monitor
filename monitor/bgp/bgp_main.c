@@ -83,9 +83,35 @@ sendUpdate (bgp_t *bgp) {
 		totalIndex += index;
 	}
 
+	index = totalIndex;
 	// Now put in the length for Path Attributes
-	update.ext[totalIndex++] = 0; len++;
-	update.ext[totalIndex++] = 0; len++;
+#include "../common/util.h"
+	PUT_BE16(&update.ext[index], jsonData->pathAttrLen); len+=2;
+	len += jsonData->pathAttrLen; // update overall length of UPDATE pkt
+	index += 2;
+	for (i=0;i<jsonData->pathIndex;i++) {
+		update.ext[index++] = jsonData->pathFlag[i];
+		update.ext[index++] = jsonData->pathType[i];
+		update.ext[index++] = jsonData->pathLen[i];
+		switch(jsonData->pathType[i]) {
+    		struct sockaddr_in addr;
+			case 1:  // ORIGIN
+				update.ext[index++] = jsonData->pathValue[i];
+				break;
+			case 3: // NEXT HOP
+    			if(inet_aton(jsonData->pathValueNextHop[i], &addr.sin_addr)==0){
+            		log_error(fp, "inet_aton() failed\n"); fflush(fp);
+					printf("\n inet_aton error !!"); fflush(stdout);
+    			}
+				log_info(fp, "BGP PathAttr NextHop= %x", addr.sin_addr.s_addr);
+				PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr));
+				index += 4;
+				break;
+			default:
+				printf("\n BGP UPDATE: unknown path type while building pkt");
+				break;
+		}
+	}
 	update.bgpo_len = htons(len);
 
 	printf("\nBGP UPDATE: Len:%d", len);
@@ -133,8 +159,27 @@ bgpExecTests(bgp_t *bgp) {
 	}
 	printf("\n Path Attr len = %d", jsonData->pathAttrLen);
 	for(i=0;i<jsonData->pathIndex;i++) {
-		printf("\n Path Attributes: Flag:%d, Type:%d, Len:%d",
-			jsonData->pathFlag[i], jsonData->pathType[i], jsonData->pathLen[i]);
+		switch(jsonData->pathType[i]) {
+    	struct sockaddr_in addr;
+		case 1:  // ORIGIN
+			printf("\n Path Attributes: Flag:%d, Type:%d, Len:%d, Val:%d",
+			jsonData->pathFlag[i], jsonData->pathType[i], 
+			jsonData->pathLen[i], jsonData->pathValue[i]);
+			break;
+		case 3: // NEXT HOP
+			printf("\n Path Attributes: Flag:%d, Type:%d, Len:%d",
+			jsonData->pathFlag[i], jsonData->pathType[i], 
+			jsonData->pathLen[i]);
+    		if(inet_aton(jsonData->pathValueNextHop[i], &addr.sin_addr)==0){
+           		log_error(fp, "inet_aton() failed\n"); fflush(fp);
+				printf("\n inet_aton error !!"); fflush(stdout);
+    		}
+			printf("BGP PathAttr NextHop= %x", addr.sin_addr.s_addr);
+			break;
+		default:
+			printf("\nUnknow Path Attribute: %d", jsonData->pathType[i]);
+			break;
+		}
 	}
 	printf("\n NLRI len = %d, prefix:%s",
 			jsonData->nlriLen, jsonData->nlriPrefix);

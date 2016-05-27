@@ -1,7 +1,7 @@
 "Params": "General"
 "custID": "100"
-"#serverIP": "127.0.0.1"
-"serverIP": "192.168.1.107"
+"serverIP": "127.0.0.1"
+"#serverIP": "192.168.1.107"
 
 "Params": "SSL"
 "sslPort": "4433"
@@ -22,3 +22,15 @@
 
 "Params": "BGP"
 "routerID":192.168.1.100
+"withdrawn len": "9"
+"withdrawn prefix": "32"
+"withdrawn route": "1.2.3.4"
+"withdrawn prefix": "24"
+"withdrawn route": "5.6.7"
+"path attribute len":"3"
+"path flag": "40"
+"path type": "2"
+"path len": "0"
+"nlri len":"24"
+"nlri prefix":"1.2.0"
+
