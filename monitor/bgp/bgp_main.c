@@ -74,11 +74,19 @@ sendUpdate (bgp_t *bgp) {
 	index = 0;
 	totalIndex = 0;
 	for (j=0;j<jsonData->wIndex;j++) {
+    	struct sockaddr_in addr;
 		w = update.ext + index;
 		w->withdrawnPrefix = jsonData->withdrawnPrefix[j];
 		index = w->withdrawnPrefix/8;
-		for (i=0; i<index; i++)
-			w->withdrawnRoute[i] =  jsonData->withdrawnRoute[j][i*2] - '0';
+    	if(inet_aton(jsonData->withdrawnRoute[j], &addr.sin_addr)==0){
+          	log_error(fp, "inet_aton() failed\n"); fflush(fp);
+			printf("\n inet_aton error !!"); fflush(stdout);
+    	}
+		log_info(fp, "BGP withdrawRoute= %x", htonl(addr.sin_addr.s_addr));
+		for (i=0; i<index; i++) {
+			w->withdrawnRoute[i] = (htonl(addr.sin_addr.s_addr)>>(8*(3-i)))&0xFF;
+			printf("\n %d:%x", i, (htonl(addr.sin_addr.s_addr)>>(8*(3-i)))&0xFF);
+		}
 		index += 1; // 1 for length of withdrawnPrefix
 		totalIndex += index;
 	}
