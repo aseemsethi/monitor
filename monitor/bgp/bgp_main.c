@@ -60,7 +60,7 @@ sendKeepalive (bgp_t *bgp) {
 sendUpdate (bgp_t *bgp) {
 	struct bgp_update update;
 	struct bgp_withdrawn *w;
-	int i, len, index;
+	int i, j, len, index, totalIndex;
 	jsonData_t *jsonData = bgp->jsonData;
     struct sockaddr_in addr;
 
@@ -71,17 +71,21 @@ sendUpdate (bgp_t *bgp) {
 	len = 21;  // 19 bytes fixed + 2 bytes for len of WithdrawnLen
 	len += jsonData->withdrawnLen;
 
-	w = (struct bgp_withdrawn*)update.ext;
-	w->withdrawnPrefix = jsonData->withdrawnPrefix[0];
+	index = 0;
+	totalIndex = 0;
+	for (j=0;j<jsonData->wIndex;j++) {
+		w = update.ext + index;
+		w->withdrawnPrefix = jsonData->withdrawnPrefix[j];
+		index = w->withdrawnPrefix/8;
+		for (i=0; i<index; i++)
+			w->withdrawnRoute[i] =  jsonData->withdrawnRoute[j][i*2] - '0';
+		index += 1; // 1 for length of withdrawnPrefix
+		totalIndex += index;
+	}
 
-	index = w->withdrawnPrefix/8;
-	for (i=0; i<index; i++)
-		w->withdrawnRoute[i] =  jsonData->withdrawnRoute[0][i*2] - '0';
-
-	index += 1; // 1 for length of withdrawnPrefix
 	// Now put in the length for Path Attributes
-	update.ext[index++] = 0; len++;
-	update.ext[index++] = 0; len++;
+	update.ext[totalIndex++] = 0; len++;
+	update.ext[totalIndex++] = 0; len++;
 	update.bgpo_len = htons(len);
 
 	printf("\nBGP UPDATE: Len:%d", len);
