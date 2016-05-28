@@ -85,7 +85,6 @@ sendUpdate (bgp_t *bgp) {
 		log_info(fp, "BGP withdrawRoute= %x", htonl(addr.sin_addr.s_addr));
 		for (i=0; i<index; i++) {
 			w->withdrawnRoute[i] = (htonl(addr.sin_addr.s_addr)>>(8*(3-i)))&0xFF;
-			printf("\n %d:%x", i, (htonl(addr.sin_addr.s_addr)>>(8*(3-i)))&0xFF);
 		}
 		index += 1; // 1 for length of withdrawnPrefix
 		totalIndex += index;
@@ -106,6 +105,8 @@ sendUpdate (bgp_t *bgp) {
 			case 1:  // ORIGIN
 				update.ext[index++] = jsonData->pathValue[i];
 				break;
+			case 2:  // AS PATH
+				break;
 			case 3: // NEXT HOP
     			if(inet_aton(jsonData->pathValueNextHop[i], &addr.sin_addr)==0){
             		log_error(fp, "inet_aton() failed\n"); fflush(fp);
@@ -119,6 +120,18 @@ sendUpdate (bgp_t *bgp) {
 				printf("\n BGP UPDATE: unknown path type while building pkt");
 				break;
 		}
+	}
+
+	for(i=0;i<jsonData->nIndex;i++) {
+		update.ext[index++] = jsonData->nlriLen[i];
+    	if(inet_aton(jsonData->nlriPrefix[i], &addr.sin_addr)==0){
+       		log_error(fp, "inet_aton() failed\n"); fflush(fp);
+			printf("\n inet_aton error !!"); fflush(stdout);
+    	}
+		log_info(fp, "BGP NLRI = %x", addr.sin_addr.s_addr);
+		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr));
+		index += 4;
+		len += 5;
 	}
 	update.bgpo_len = htons(len);
 
@@ -154,7 +167,7 @@ sendOpen (bgp_t *bgp) {
 	sendBgpData(bgp, (uchar*)&open, 29);
 }
 
-bgpExecTests(bgp_t *bgp) {
+bgpPrintConfig(bgp_t *bgp) {
 	jsonData_t *jsonData = bgp->jsonData;
 	int i;
 
@@ -189,8 +202,11 @@ bgpExecTests(bgp_t *bgp) {
 			break;
 		}
 	}
-	printf("\n NLRI len = %d, prefix:%s",
-			jsonData->nlriLen, jsonData->nlriPrefix);
+	printf("\n NLRI routes:");
+	for(i=0;i<jsonData->nIndex;i++) {
+		printf("\n Withdrawn prefix:%d, route:%s", 
+			jsonData->nlriLen[i], jsonData->nlriPrefix[i]);
+	}
 	fflush(stdout);
 }
 
@@ -324,7 +340,7 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 		log_info(fp, "Error creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	bgpExecTests(&bgp);
-	sendUpdate(&bgp);
+	bgpPrintConfig(&bgp);
+	//sendUpdate(&bgp);
 	while (1) sleep(2);
 }

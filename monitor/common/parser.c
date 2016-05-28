@@ -24,7 +24,7 @@ jsonData_t* parse (char* id, FILE *flog) {
 	char filePath[100];
 	jsonData_t* jsonData;
 	jsmntok_t *t;
-	int nlriIndex = 0;
+	int nIndex = 0;
 	int pathIndex = 0;
 	int wIndex = 0;
 
@@ -125,12 +125,12 @@ jsonData_t* parse (char* id, FILE *flog) {
 				pathIndex++;
 			} else if (jsoneq(buff, &tok[i], "path len") == 0) {
 				jsonData->pathLen[pathIndex] = strtol(s, NULL,0);
-// BGP Stuff - NRI - only 1 allowed as of now
+// BGP Stuff - NRI
 			} else if (jsoneq(buff, &tok[i], "nlri len") == 0) {
-				jsonData->nlriLen = strtol(s, NULL,0);
+				jsonData->nlriLen[nIndex] = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "nlri prefix") == 0) {
-				strcpy(jsonData->nlriPrefix, s); 
-				nlriIndex++; // not used as of now - TBD
+				strcpy(&jsonData->nlriPrefix[nIndex][0], s); 
+				nIndex++;
 			}
 			i++; 
 		}
@@ -143,7 +143,7 @@ jsonData_t* parse (char* id, FILE *flog) {
 	jsonData->httpParallel, jsonData->pktSize, jsonData->httpVerbose);
 	fflush(flog);
 	fclose(fp);
-	jsonData->nlriIndex =  nlriIndex;
+	jsonData->nIndex =  nIndex;
 	jsonData->pathIndex =  pathIndex;
 	jsonData->wIndex =  wIndex;
 	return jsonData;

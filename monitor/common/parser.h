@@ -32,8 +32,8 @@ typedef struct {
 	int pathAttrLen;
 	int pathFlag[4]; int pathType[4]; int pathLen[4]; int pathValue[4];
 	char pathValueNextHop[4][20];
-	int nlriLen; char nlriPrefix[20];
-	int nlriIndex;
+	int nlriLen[4]; char nlriPrefix[4][20];
+	int nIndex;
 	int pathIndex;
 	int wIndex;
 } jsonData_t;
