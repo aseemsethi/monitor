@@ -29,11 +29,11 @@ typedef struct {
 	int version;
     char routerID[30];
 	int withdrawnLen; 
-	int withdrawnPrefix[4]; char withdrawnRoute[4][20];
+	int withdrawnPrefix[20]; char withdrawnRoute[20][20];
 	int pathAttrLen;
-	int pathFlag[4]; int pathType[4]; int pathLen[4]; int pathValue[4];
-	char pathValueNextHop[4][20];
-	int nlriLen[4]; char nlriPrefix[4][20];
+	int pathFlag[20]; int pathType[20]; int pathLen[20]; int pathValue[20];
+	char pathValueNextHop[20][20];
+	int nlriLen[20]; char nlriPrefix[20][20];
 	int nIndex;
 	int pathIndex;
 	int wIndex;

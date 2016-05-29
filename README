@@ -9,6 +9,7 @@ The Monitor Application is a single binary called "mont_cust". This is spawned a
  For HTTP Test: ./mont_cust 100 http
 
 There are many Assessment Tools today that can also be used. One such list of tools is at https://github.com/ssllabs/research/wiki/Assessment-Tools.  A list of cve ids is maintained at: https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=openssl
+Some other tools that are used for HTTP testing are burp, wrk
 
 Logging
 =======
@@ -56,11 +57,14 @@ $ more /var/monT/100/config.json
 
 BGP Tool
 ========
+This tool can be used for negative testing. One can change attributes from version to other fields to test BGP peer.
+
 Config: Set routerID to be the ID of you own BGP machine, i.e. this simulator
 "withdrawn Len" - is the len of bytes following this field, and consists of 1 or more pairs of "withdrawn prefix" + "withdrawn route".
-Ensure tha the "withdrawn len" is set correctly to be the number of bytes following this field, that consists of prefix+route pairs.
+Note that the "Withdrawn Len" and "Path Attribute Len" is set to 0 in the config. The code calculates the length of these 2 fields, depending on the configuration provided.
 Running: Run the bgp tool by "./mont_cust 100 bgp". The tool first connects using TCP to the peer router, given by the "server IP" in the General Section at top of the config file.
-Then it sends an BGP Update message to the peer, with the optionsprovided in the config file, i.e. Withdrawn Routes and Advertised routes. 
+Then it sends an BGP OPEN message to the peer. It then awaits a BGP KEEPALIVE to the peer. It then awaits a BGP UPDATE message from the peer, and on receipt it sends an BGP Update message to the peer.
+The Withdrawn Routes and Advertised routes are advertised in this Update message.
 
 SSL Versions and Recommendations
 ================================

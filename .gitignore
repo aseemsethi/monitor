@@ -5,6 +5,9 @@ mont_server
 monitor/mont_cust
 monitor/xmlparser/libxmlparse.a
 bin/libxmlparse.a
+monitor/common/log.o
+monitor/common/mont_cust.o
+
 
 
 # Byte-compiled / optimized / DLL files

@@ -25,7 +25,7 @@ $(MONT): $(obj)
 	$(CXX) -g -o $@ $^ $(LDFLAGS)
 
 clean:
-	$(RM) core* ssl/*.o ssl_perf/*.o http/*.o bgp/*.o mont_cust
+	$(RM) core* ssl/*.o ssl_perf/*.o http/*.o bgp/*.o common/*.o mont_cust
 
 install:
 	cp $(MONT) ${INSTDIR}
