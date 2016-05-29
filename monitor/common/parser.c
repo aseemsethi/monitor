@@ -103,6 +103,8 @@ jsonData_t* parse (char* id, FILE *flog) {
 // BGP Stuff
 			} else if (jsoneq(buff, &tok[i], "routerID") == 0) {
 				strcpy(jsonData->routerID, s); 
+			} else if (jsoneq(buff, &tok[i], "version") == 0) {
+				jsonData->version = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "withdrawn len") == 0) {
 				jsonData->withdrawnLen = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "withdrawn prefix") == 0) {
@@ -135,12 +137,6 @@ jsonData_t* parse (char* id, FILE *flog) {
 			i++; 
 		}
 	}
-	log_debug(flog,"**Customer Config: ID:%d, Server: %s, sslPort: %d, sslPerSec: %d, totalConn: %d, helloPerSec:%d, totalHello:%d, httpParallel:%d, pktSize:%d, httpVerbose:%d", 
-	jsonData->custID, 
-	jsonData->serverIP, jsonData->sslPort, 
-	jsonData->sslPerSec, jsonData->totalConn, 
-	jsonData->helloPerSec, jsonData->totalHello,
-	jsonData->httpParallel, jsonData->pktSize, jsonData->httpVerbose);
 	fflush(flog);
 	fclose(fp);
 	jsonData->nIndex =  nIndex;

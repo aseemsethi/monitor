@@ -15,6 +15,7 @@
 
 FILE *fp;
 FILE *fbgpStats;
+//#define PKT_DEBUG 1
 
 typedef struct {
 	jsonData_t *jsonData;
@@ -67,15 +68,13 @@ sendUpdate (bgp_t *bgp) {
 	log_info(fp, "BGP: Send UPDATE"); fflush(stdout);
 	memset(update.bgpo_marker, 0xFF, 16);
 	update.bgpo_type = BGP_UPDATE;
-	update.withdrawnLen = htons(jsonData->withdrawnLen);
 	len = 21;  // 19 bytes fixed + 2 bytes for len of WithdrawnLen
-	len += jsonData->withdrawnLen;
 
 	index = 0;
 	totalIndex = 0;
 	for (j=0;j<jsonData->wIndex;j++) {
     	struct sockaddr_in addr;
-		w = update.ext + index;
+		w = update.ext + totalIndex;
 		w->withdrawnPrefix = jsonData->withdrawnPrefix[j];
 		index = w->withdrawnPrefix/8;
     	if(inet_aton(jsonData->withdrawnRoute[j], &addr.sin_addr)==0){
@@ -84,11 +83,14 @@ sendUpdate (bgp_t *bgp) {
     	}
 		log_info(fp, "BGP withdrawRoute= %x", htonl(addr.sin_addr.s_addr));
 		for (i=0; i<index; i++) {
-			w->withdrawnRoute[i] = (htonl(addr.sin_addr.s_addr)>>(8*(3-i)))&0xFF;
+			w->withdrawnRoute[i]=(htonl(addr.sin_addr.s_addr)>>(8*(3-i)))&0xFF;
 		}
 		index += 1; // 1 for length of withdrawnPrefix
 		totalIndex += index;
 	}
+	printf("\n!!!!!!! totalIndex = %d", totalIndex);
+	len += totalIndex;  // sum up all Withdrawn Routes
+	update.withdrawnLen = htons(totalIndex);
 
 	index = totalIndex;
 	// Now put in the length for Path Attributes
@@ -136,8 +138,10 @@ sendUpdate (bgp_t *bgp) {
 	update.bgpo_len = htons(len);
 
 	printf("\nBGP UPDATE: Len:%d", len);
+#ifdef PKT_DEBUG
 	for (i=0;i<len;i++)
 		printf(" %2X", ((uchar*)&update)[i]);
+#endif
 	sendBgpData(bgp, (uchar*)&update, len);
 }
 
@@ -150,7 +154,7 @@ sendOpen (bgp_t *bgp) {
 	memset(open.bgpo_marker, 0xFF, 16);
 	open.bgpo_len = htons(29);
 	open.bgpo_type = BGP_OPEN;
-	open.bgpo_version = BGP_VERSION;
+	open.bgpo_version = jsonData->version; // BGP_VERSION;
 	open.bgpo_myas = htons(1);
 	open.bgpo_holdtime = 0;
 
@@ -171,7 +175,7 @@ bgpPrintConfig(bgp_t *bgp) {
 	jsonData_t *jsonData = bgp->jsonData;
 	int i;
 
-	sleep(1);
+	printf("\n BGP Version= %d", jsonData->version);
 	// Send Update Message
 	printf("\n Withdrawn len = %d", jsonData->withdrawnLen);
 	for(i=0;i<jsonData->wIndex;i++) {
@@ -301,13 +305,12 @@ void *bgpListener(bgp_t* bgp) {
 			// mode. For now, ignoring this and continuing.
 				continue;
 			}
+#ifdef PKT_DEBUG
 			printf("\nBytesRead %i", bytesRead);
 			for (i=0;i<bytesRead;i++)
 				printf(" %2X", buffer[i]);
 			fflush(stdout);
-			if (memcmp(buffer, "1111111111111111", 16) == 0) {
-				printf("\nBGP Marker recvd correctly");
-			} 
+#endif
 			switch (buffer[18]) {
 				case 1: log_info(fp, "OPEN recvd"); 
 						sendOpen(bgp);
@@ -335,12 +338,12 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 	log_info(fp, "BGP started..."); fflush(fp);
 
 	bgp.jsonData = jsonData;
+	bgpPrintConfig(&bgp);
 	initBgpConnection(&bgp, jsonData);
 	if (pthread_create(&threadPID, NULL, bgpListener, &bgp)) {
 		log_info(fp, "Error creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	bgpPrintConfig(&bgp);
 	//sendUpdate(&bgp);
 	while (1) sleep(2);
 }

@@ -26,6 +26,7 @@ typedef struct {
     int httpVerbose;
 
 	// BGP Params
+	int version;
     char routerID[30];
 	int withdrawnLen; 
 	int withdrawnPrefix[4]; char withdrawnRoute[4][20];

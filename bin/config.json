@@ -21,8 +21,12 @@
 "pktSize": "200"
 
 "Params": "BGP"
+"version":"4"
 "routerID":192.168.1.100
-"withdrawn len": "9"
+"****Comment":"Withdrawn Info, withdrawn-len is ignored"
+"withdrawn len": "0"
+"withdrawn prefix": "32"
+"withdrawn route": "100.2.3.5"
 "withdrawn prefix": "32"
 "withdrawn route": "100.2.3.4"
 "withdrawn prefix": "24"
