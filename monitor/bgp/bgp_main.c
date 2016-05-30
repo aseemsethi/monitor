@@ -66,7 +66,8 @@ sendUpdate (bgp_t *bgp) {
     struct sockaddr_in addr;
 	int saveIndexForPathAttrLen = 0;
 	int start = 0;
-	int end = 800;
+#define MAX_ROUTES 800 
+	int end = MAX_ROUTES;
 	int leaveLoop = 0;
 	int count = jsonData->nlriRepeat;
 
@@ -143,8 +144,8 @@ again:
 		len += 5;
 	}
 	// We repeat the 1st entry, incrementing the ip addresses till nlriCount
-	printf("\nRepeating Addresses:%d: ", jsonData->nlriRepeat);
-	if (count <= 800) {
+	printf("\nRepeating NLRI");
+	if (count <= MAX_ROUTES) {
 		leaveLoop = 1; end = start + count;
 	} 
 	for(i=start;i<end;i++) {
@@ -165,9 +166,12 @@ again:
 	sendBgpData(bgp, (uchar*)&update, len);
 	if (leaveLoop == 1) return;
 
-	count = count - 800;
-	start += end; end += 800; 
-	printf("\nSend Update again for remaining: %d", count);
+	count = count - MAX_ROUTES;
+	start += MAX_ROUTES; end += MAX_ROUTES; 
+	printf("  Sent: %d, Send Update for remaining: %d", end-start, count);
+	{struct timespec ts;
+    ts.tv_sec = 0; ts.tv_nsec = 800000000;
+    nanosleep(&ts, NULL);}
 	goto again;
 }
 
@@ -375,6 +379,6 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 		log_info(fp, "Error creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	sendUpdate(&bgp);
+	//sendUpdate(&bgp);
 	while (1) sleep(2);
 }
