@@ -11,6 +11,7 @@
 #include <openssl/bio.h>
 #include <openssl/md5.h>
 /* end */
+#include <openssl/ssl.h>
 
 #define INTERFACE "eth0"
 #define SSL_PORT 4433

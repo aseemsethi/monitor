@@ -3,6 +3,10 @@ This is a Monitor Application v2.0. Testing support for the following are implem
 - HTTP Performance
 - IKEv2 Functional and Performance
 
+Libraries to be installed:
+openssl, openssl-devel, curl, curl-devel, expat
+yum install gcc-c++
+
 The Monitor Application is a single binary called "mont_cust". This is spawned as follows :
  For SSL Function Test: ./mont_cust 100 ssl
  For SSL Performance Test: ./mont_cust 100 ssl_perf

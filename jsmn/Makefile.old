@@ -6,7 +6,7 @@ all: libjsmn.a
 
 libjsmn.a: jsmn.o
 	$(AR) rc $@ $^
-	cp libjsmn.a ${INSTDIR}
+	cp libjsmn.a $(INSTDIR}
 
 %.o: %.c jsmn.h
 	$(CC) -c $(CFLAGS) $< -o $@

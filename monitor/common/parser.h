@@ -29,13 +29,14 @@ typedef struct {
 	int version;
     char routerID[30];
 	int withdrawnLen; 
-	int withdrawnPrefix[20]; char withdrawnRoute[20][20];
+	int withdrawnPrefix[100]; char withdrawnRoute[100][20];
 	int pathAttrLen;
 	int pathFlag[20]; int pathType[20]; int pathLen[20]; int pathValue[20];
 	char pathValueNextHop[20][20];
-	int nlriLen[20]; char nlriPrefix[20][20];
+	int nlriLen[100]; char nlriPrefix[100][20];
 	int nIndex;
 	int pathIndex;
 	int wIndex;
+	int nlriRepeat;
 } jsonData_t;
 

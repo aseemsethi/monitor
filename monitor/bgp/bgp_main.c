@@ -65,7 +65,12 @@ sendUpdate (bgp_t *bgp) {
 	jsonData_t *jsonData = bgp->jsonData;
     struct sockaddr_in addr;
 	int saveIndexForPathAttrLen = 0;
+	int start = 0;
+	int end = 800;
+	int leaveLoop = 0;
+	int count = jsonData->nlriRepeat;
 
+again:
 	log_info(fp, "BGP: Send UPDATE"); fflush(stdout);
 	memset(update.bgpo_marker, 0xFF, 16);
 	update.bgpo_type = BGP_UPDATE;
@@ -137,6 +142,19 @@ sendUpdate (bgp_t *bgp) {
 		index += 4;
 		len += 5;
 	}
+	// We repeat the 1st entry, incrementing the ip addresses till nlriCount
+	printf("\nRepeating Addresses:%d: ", jsonData->nlriRepeat);
+	if (count <= 800) {
+		leaveLoop = 1; end = start + count;
+	} 
+	for(i=start;i<end;i++) {
+		update.ext[index++] = jsonData->nlriLen[0];
+		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr)+i);
+		//addr.sin_addr.s_addr += 1;
+		//printf(" %x", htonl(addr.sin_addr.s_addr)+i);
+		index += 4;
+		len += 5;
+	}
 	update.bgpo_len = htons(len);
 
 #ifdef PKT_DEBUG
@@ -145,6 +163,12 @@ sendUpdate (bgp_t *bgp) {
 		printf(" %2X", ((uchar*)&update)[i]);
 #endif
 	sendBgpData(bgp, (uchar*)&update, len);
+	if (leaveLoop == 1) return;
+
+	count = count - 800;
+	start += end; end += 800; 
+	printf("\nSend Update again for remaining: %d", count);
+	goto again;
 }
 
 sendOpen (bgp_t *bgp) {
@@ -217,6 +241,7 @@ bgpPrintConfig(bgp_t *bgp) {
 		log_info(fp, "NLRI Routes:%d, route:%s", 
 			jsonData->nlriLen[i], jsonData->nlriPrefix[i]);
 	}
+	log_info(fp, "Repeat NLRI Routes:%d", jsonData->nlriRepeat);
 	fflush(stdout);
 }
 
@@ -350,6 +375,6 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 		log_info(fp, "Error creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	//sendUpdate(&bgp);
+	sendUpdate(&bgp);
 	while (1) sleep(2);
 }

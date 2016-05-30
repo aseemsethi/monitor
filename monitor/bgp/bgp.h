@@ -73,7 +73,7 @@ struct __attribute__((packed, aligned(1))) bgp_update {
     guint16 bgpo_len;
     guint8 bgpo_type;
     guint16 withdrawnLen;
-	guint8 ext[100];
+	guint8 ext[4000];
 };
 struct  __attribute__((packed, aligned(1))) bgp_withdrawn {
     guint8 withdrawnPrefix;

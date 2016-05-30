@@ -133,6 +133,8 @@ jsonData_t* parse (char* id, FILE *flog) {
 			} else if (jsoneq(buff, &tok[i], "nlri prefix") == 0) {
 				strcpy(&jsonData->nlriPrefix[nIndex][0], s); 
 				nIndex++;
+			} else if (jsoneq(buff, &tok[i], "repeat nlri") == 0) {
+				jsonData->nlriRepeat = strtol(s, NULL,0);
 			}
 			i++; 
 		}
