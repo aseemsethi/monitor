@@ -22,11 +22,10 @@ The SSL Test Process executes all tests, and write:
 - stat  file in /var/monT/<custID> - ssl_stats, ssl_perf_stats, http_stats
 
 Example of Config on /var/monT/100/config.json
-$ more /var/monT/100/config.json 
 "Params": "General"
 "custID": "100"
-"serverIP": "127.0.0.1"
-"#serverIP": "192.168.1.107"
+"#serverIP": "127.0.0.1"
+"serverIP": "192.168.1.107"
 
 "Params": "SSL"
 "sslPort": "4433"
@@ -46,18 +45,36 @@ $ more /var/monT/100/config.json
 "pktSize": "200"
 
 "Params": "BGP"
+"version":"4"
+"myas":"1"
 "routerID":192.168.1.100
-"withdrawn len": "9"
+"****Comment":"Withdrawn Info, withdrawn-len is ignored"
+"withdrawn len": "0"
 "withdrawn prefix": "32"
-"withdrawn route": "1.2.3.4"
+"withdrawn route": "100.2.3.5"
+"withdrawn prefix": "32"
+"withdrawn route": "100.2.3.4"
 "withdrawn prefix": "24"
-"withdrawn route": "5.6.7"
-"path attribute len":"3"
-"path flag": "40"
+"withdrawn route": "5.6.7.0"
+"****Comment":"Path Attr Len is bytes following this field - ignored"
+"****Comment":"Path Attr need to have all fields, F, T, L and Val in config"
+"path attribute len":"0"
+"path flag": "64"
+"path type": "1"
+"path len": "1"
+"path value": "0"
+"path flag": "64"
 "path type": "2"
 "path len": "0"
-"nlri len":"24"
-"nlri prefix":"1.2.0"
+"path value": "0"
+"path flag": "64"
+"path type": "3"
+"path len": "4"
+"path value nexthop": "192.168.1.0"
+"****Comment":"NLRI fields"
+"nlri len":"32"
+"nlri prefix":"100.101.102.103"
+"repeat nlri":"20"
 
 BGP Tool
 ========
@@ -69,6 +86,7 @@ Note that the "Withdrawn Len" and "Path Attribute Len" is set to 0 in the config
 Running: Run the bgp tool by "./mont_cust 100 bgp". The tool first connects using TCP to the peer router, given by the "server IP" in the General Section at top of the config file.
 Then it sends an BGP OPEN message to the peer. It then awaits a BGP KEEPALIVE to the peer. It then awaits a BGP UPDATE message from the peer, and on receipt it sends an BGP Update message to the peer.
 The Withdrawn Routes and Advertised routes are advertised in this Update message.
+If "repeat nlri" is set to non-zero value, then the 1st nlri-len/prefix value is taken and repeated "repeat nlri" times, each time, incrementing the lowest byte of the "nlri preifx" by 1.
 
 SSL Versions and Recommendations
 ================================

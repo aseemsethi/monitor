@@ -39,5 +39,6 @@ typedef struct {
 	int pathIndex;
 	int wIndex;
 	int nlriRepeat;
+	int repeatUpdate;
 } jsonData_t;
 

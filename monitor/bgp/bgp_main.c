@@ -58,6 +58,66 @@ sendKeepalive (bgp_t *bgp) {
 	sendBgpData(bgp, (uchar*)&open, 19);
 }
 
+sendUpdateWithdraw (bgp_t *bgp) {
+	struct bgp_update update;
+	struct bgp_withdrawn *w;
+	int i, j, len, index, totalIndex, pathAttrLen;
+	jsonData_t *jsonData = bgp->jsonData;
+    struct sockaddr_in addr;
+	int saveIndexForPathAttrLen = 0;
+	int start = 0;
+#define MAX_ROUTES 800 
+	int end = MAX_ROUTES;
+	int leaveLoop = 0;
+	int count = jsonData->nlriRepeat;
+
+again:
+	log_info(fp, "BGP: Send UPDATE Withdraw"); fflush(stdout);
+	memset(update.bgpo_marker, 0xFF, 16);
+	update.bgpo_type = BGP_UPDATE;
+	len = 21;  // 19 bytes fixed + 2 bytes for len of WithdrawnLen
+	index = 0;
+
+	// We repeat the 1st entry, incrementing the ip addresses till nlriCount
+	printf("\nRepeating Withdrawn Routes");
+	if (count <= MAX_ROUTES) {
+		leaveLoop = 1; end = start + count;
+	} 
+   	if(inet_aton(jsonData->nlriPrefix[0], &addr.sin_addr)==0){
+   		log_error(fp, "inet_aton() failed\n"); fflush(fp);
+		printf("\n inet_aton error !!"); fflush(stdout);
+   	}
+	for(i=start;i<end;i++) {
+		update.ext[index++] = jsonData->nlriLen[0];
+		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr)+i);
+		index += 4;
+		len += 5;
+	}
+	update.withdrawnLen = htons(index);
+
+	// Len of 0 for Path Attributes
+#include "../common/util.h"
+	PUT_BE16(&update.ext[index], 0);
+	len +=2;
+	update.bgpo_len = htons(len);
+
+#ifdef PKT_DEBUG
+	printf("\nBGP UPDATE Withdraw: Len:%d", len);
+	for (i=0;i<len;i++)
+		printf(" %2X", ((uchar*)&update)[i]);
+#endif
+	sendBgpData(bgp, (uchar*)&update, len);
+	if (leaveLoop == 1) return;
+
+	count = count - MAX_ROUTES;
+	start += MAX_ROUTES; end += MAX_ROUTES; 
+	printf("  Sent: %d, Send Update for remaining: %d", end-start, count);
+	{struct timespec ts;
+    ts.tv_sec = 0; ts.tv_nsec = 800000000;
+    nanosleep(&ts, NULL);}
+	goto again;
+}
+
 sendUpdate (bgp_t *bgp) {
 	struct bgp_update update;
 	struct bgp_withdrawn *w;
@@ -151,8 +211,6 @@ again:
 	for(i=start;i<end;i++) {
 		update.ext[index++] = jsonData->nlriLen[0];
 		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr)+i);
-		//addr.sin_addr.s_addr += 1;
-		//printf(" %x", htonl(addr.sin_addr.s_addr)+i);
 		index += 4;
 		len += 5;
 	}
@@ -313,7 +371,7 @@ initBgpConnection(bgp_t *bgp, jsonData_t* jsonData) {
 
 void *bgpListener(bgp_t* bgp) {
 	int running = 1;
-
+	int countUpdates=0;
 
 	log_info(fp, "BGP Listener: started"); fflush(fp);
 	while(running){
@@ -355,6 +413,15 @@ void *bgpListener(bgp_t* bgp) {
 				case 2: 
 						log_info(fp, "UPDATE recvd");
 						sendUpdate(bgp);
+						if (bgp->jsonData->repeatUpdate != 0) {
+							countUpdates = bgp->jsonData->repeatUpdate;
+							for (i=0;i<countUpdates;i++) {	
+								sleep (3);
+								sendUpdate(bgp); //advertise
+								sleep (3);
+								sendUpdateWithdraw(bgp); //withdraw
+							}
+						}
 						break;
 				case 3: log_info(fp, "NOTIFICATION recvd"); break;
 				case 4: log_info(fp, "KEEPALIVE recvd"); break;
@@ -380,6 +447,6 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 		log_info(fp, "Error creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	//sendUpdate(&bgp);
+	sendUpdateWithdraw(&bgp); //withdraw
 	while (1) sleep(2);
 }
