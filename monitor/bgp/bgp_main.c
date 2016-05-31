@@ -416,7 +416,7 @@ void *bgpListener(bgp_t* bgp) {
 			// Search for the marker
 			while (1) {
 				if (memcmp(p, marker, sizeof(marker)) != 0) {
-					printf("."); p++;
+					printf("."); p++; fflush(stdout);
 				} else {
 					printf("\n Marker Found"); break;
 				}
