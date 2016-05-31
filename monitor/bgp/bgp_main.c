@@ -466,6 +466,6 @@ int bgp_main(jsonData_t *jsonData, FILE *stats, FILE *logs) {
 		log_info(fp, "Error creating BGP Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	sendUpdateWithdraw(&bgp); //withdraw
+	//sendUpdateWithdraw(&bgp); //withdraw
 	while (1) sleep(2);
 }
