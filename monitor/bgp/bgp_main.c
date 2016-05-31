@@ -380,14 +380,20 @@ void *bgpListener(bgp_t* bgp) {
 		selTimeout.tv_usec = 0;
 		fd_set readSet;
 		FD_ZERO(&readSet);
+		char* p;
+		int count;
 		FD_SET(bgp->sock, &readSet);
+		const u_char marker[] = {
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		};
 
 		int numReady = select(FD_SETSIZE, &readSet, NULL, NULL, &selTimeout);
 		if(numReady > 0){
 			if (FD_ISSET (bgp->sock, &readSet)) {
 				//printf("\n BGP Data recvd...");
 			}
-			char buffer[100] = {'\0'};
+			char buffer[1000] = {'\0'};
 			int i;
 			int bytesRead = read(bgp->sock, &buffer, sizeof(buffer));
 			if(bytesRead < 0) {
@@ -405,6 +411,17 @@ void *bgpListener(bgp_t* bgp) {
 				printf(" %2X", buffer[i]);
 			fflush(stdout);
 #endif
+			p = &buffer[0];
+			count = 0;
+			// Search for the marker
+			while (1) {
+				if (memcmp(p, marker, sizeof(marker)) != 0) {
+					printf("."); p++;
+				} else {
+					printf("\n Marker Found"); break;
+				}
+				if (count++ > bytesRead) break;
+			}
 			switch (buffer[18]) {
 				case 1: log_info(fp, "OPEN recvd"); 
 						sendOpen(bgp);
@@ -425,7 +442,9 @@ void *bgpListener(bgp_t* bgp) {
 						break;
 				case 3: log_info(fp, "NOTIFICATION recvd"); break;
 				case 4: log_info(fp, "KEEPALIVE recvd"); break;
-				default: log_info(fp, "Unknown BGP Type recvd");
+				default: 
+					log_info(fp, "Unknown BGP Type recvd: %d",
+					buffer[18]);
 			}
 			fflush(fp);
 		}
