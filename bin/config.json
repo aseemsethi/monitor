@@ -22,6 +22,7 @@
 
 "Params": "BGP"
 "version":"4"
+"myas":"1"
 "routerID":192.168.1.100
 "****Comment":"Withdrawn Info, withdrawn-len is ignored"
 "withdrawn len": "0"
@@ -49,5 +50,5 @@
 "****Comment":"NLRI fields"
 "nlri len":"32"
 "nlri prefix":"100.101.102.103"
-"repeat nlri":"2000"
+"repeat nlri":"20"
 

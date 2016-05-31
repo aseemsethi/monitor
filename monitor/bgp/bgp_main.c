@@ -185,7 +185,7 @@ sendOpen (bgp_t *bgp) {
 	open.bgpo_len = htons(29);
 	open.bgpo_type = BGP_OPEN;
 	open.bgpo_version = jsonData->version; // BGP_VERSION;
-	open.bgpo_myas = htons(1);
+	open.bgpo_myas = htons(jsonData->myas);
 	open.bgpo_holdtime = 0;
 
     if(inet_aton(jsonData->routerID, &bgp->routerID.sin_addr) == 0) {
@@ -206,6 +206,7 @@ bgpPrintConfig(bgp_t *bgp) {
 	int i;
 
 	log_info(fp, "BGP Version= %d", jsonData->version);
+	log_info(fp, "My AS= %d", jsonData->myas);
 	// Send Update Message
 	log_info(fp, "Withdrawn len = %d", jsonData->withdrawnLen);
 	for(i=0;i<jsonData->wIndex;i++) {

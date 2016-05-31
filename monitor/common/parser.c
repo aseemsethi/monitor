@@ -105,6 +105,8 @@ jsonData_t* parse (char* id, FILE *flog) {
 				strcpy(jsonData->routerID, s); 
 			} else if (jsoneq(buff, &tok[i], "version") == 0) {
 				jsonData->version = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "myas") == 0) {
+				jsonData->myas = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "withdrawn len") == 0) {
 				jsonData->withdrawnLen = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "withdrawn prefix") == 0) {

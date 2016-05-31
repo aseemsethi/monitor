@@ -27,6 +27,7 @@ typedef struct {
 
 	// BGP Params
 	int version;
+	int myas;
     char routerID[30];
 	int withdrawnLen; 
 	int withdrawnPrefix[100]; char withdrawnRoute[100][20];
