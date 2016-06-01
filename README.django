@@ -10,6 +10,10 @@ $ python manage.py startapp myApp
 $ python manage.py makemigrations
 $ python manage.py migrate
 
+Note: "pip freeze" gives the following output
+Django==1.9.5
+psycopg2==2.6.1
+
 Verify the installation of python and Django
 $ python -c "import django; print(django.__path__)"
 $ python -c "import django; print(django.VERSION)"

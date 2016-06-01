@@ -87,6 +87,7 @@ Running: Run the bgp tool by "./mont_cust 100 bgp". The tool first connects usin
 Then it sends an BGP OPEN message to the peer. It then awaits a BGP KEEPALIVE to the peer. It then awaits a BGP UPDATE message from the peer, and on receipt it sends an BGP Update message to the peer.
 The Withdrawn Routes and Advertised routes are advertised in this Update message.
 If "repeat nlri" is set to non-zero value, then the 1st nlri-len/prefix value is taken and repeated "repeat nlri" times, each time, incrementing the lowest byte of the "nlri preifx" by 1.
+If "repeat update" is set to a non-zero value, an UPDATE advertising NLRI routes is sent, followed by another UPDATE withdrawing all NLRI routes. This is repeated "nlri update" number of times.
 
 SSL Versions and Recommendations
 ================================
