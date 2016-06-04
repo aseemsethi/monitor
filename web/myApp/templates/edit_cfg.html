@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}
+    Edit {{ configs.custID }} - {{ block.super }}
+{% endblock title %}
+
+{% block content %}
+    <h1>Edit "{{ configs.custID }}"</h1>
+    <form role="form" action="" method="post">
+       {% csrf_token %}
+       {{ form.as_p }}
+       <button type="submit">Submit</button>
+    </form>
+{% endblock content %}

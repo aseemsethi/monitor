@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}
+    Configuration Details - {{ block.super }}
+{% endblock title %}
+<button type="button" class="btn btn-success">Edit</button>
+
+{% block content %}
+    <h1>Protocol Configuration Details</h1>
+    <!-- here’s the variable we are passing in -->
+	<p> 
+		Customer: ID:{{ configs.custID }}, Server:{{ configs.serverIP }},
+		Protocol: {{ configs.protocol }}
+		<a class="btn btn-success" href="{% url 'edit_cfg' slug=configs.slug %}">Edit</a>
+		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug %}">Run</a>
+	</p>
+		{% if running == True %}
+			Running....
+		{% else %}
+			Stopped	
+		{% endif %}
+{% endblock content %}
+

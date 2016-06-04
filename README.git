@@ -1,5 +1,9 @@
 GIT Tutorial
 =============
+Clone a new tree
+----------------
+git clone https://aseemsethi@github.com/aseemsethi/monitor.git
+
 GIT Readme for 1st time repo into github
 -----------------------------------------
 cd ~mont

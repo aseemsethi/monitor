@@ -4,11 +4,13 @@ Install virtualenv and Postgres DB as outlined in the next sections. Then instal
 $ source venv/bin/activate
 $ pip install psycopg2
 $ pip install Django
-$ django-admin startproject myMonitor
+$ django-admin startproject myMonitor .
 $ cd myMonitor/
 $ python manage.py startapp myApp
+......Add myApp in settings.py apps
 $ python manage.py makemigrations
 $ python manage.py migrate
+.....Now go to web browser and type in 127.0.0.1:8000
 
 Note: "pip freeze" gives the following output
 Django==1.9.5
