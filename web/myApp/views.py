@@ -2,6 +2,7 @@ from django.shortcuts import render
 from myApp.models import cfg
 from django.shortcuts import render, redirect
 from myApp.forms import cfgForm
+from subprocess import Popen
 
 running = False
 
@@ -20,7 +21,10 @@ def cfg_detail(request, slug):
 def run_cfg(request, slug):
     # grab the object...
 	cfgs = cfg.objects.get(slug=slug)
-	print ("Aseem !!!!")
+	print ("Executing Test Case: ")
+	cmd_str = "/home/asethi/monitor/monitor/mont_cust 100 bgp"
+	proc = Popen([cmd_str], shell=True,
+		stdin=None, stdout=None, stderr=None, close_fds=True)
 	return render( request, 'cfg_detail.html', 
 				{'configs': cfgs, 'running':True} )
 
