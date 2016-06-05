@@ -13,7 +13,7 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
     return -1;
 }
 
-jsonData_t* parse (char* id, FILE *flog) {
+jsonData_t* parse (char* id, FILE *flog, char* configFile) {
 	jsmn_parser p;
 	jsmntok_t *tok;
 	size_t tokcount = 256;
@@ -39,6 +39,9 @@ jsonData_t* parse (char* id, FILE *flog) {
 	sprintf(filePath, "/var/monT/");
 	sprintf(&filePath[strlen("/var/monT/")], id);
 	sprintf(&filePath[strlen("/var/monT/")+strlen(id)], "/config.json");
+
+	if (configFile != NULL)
+		strcpy(filePath, configFile);
 	log_debug(flog, "Opening Customer Config File: %s", filePath);
 	fp = fopen(filePath, "r");
 	if (fp == NULL) {

@@ -14,7 +14,7 @@ FILE *fmont;
 pthread_t sslPID, sslPerfPID, httpPID;
 
 
-jsonData_t* parse (char*, FILE *flog);
+jsonData_t* parse (char*, FILE *flog, char* configFile);
 void* sslStart(void *args);
 void* sslPerfStart(void *args);
 void* httpStart(void *args);
@@ -95,7 +95,7 @@ startSslThread (jsonData_t* jsonData) {
  */
 main(int argc, char *argv[]) {
 	jsonData_t* jsonData;
-	char filePath[100];
+	char filePath[200], configFile[200];
 
 	sprintf(filePath, "/var/monT/");
 	sprintf(&filePath[strlen("/var/monT/")], argv[1]);
@@ -108,29 +108,37 @@ main(int argc, char *argv[]) {
 		fflush(stdout); return;
 	}
 
-	log_debug(fmont, "LOG Monitor: %d params:%s:%s", argc, argv[1], argv[2]);
-
-	// Read in the config for customer id: argv[1]
-	jsonData = parse(argv[1], fmont);
+	if (argc == 4) {
+		log_debug(fmont, "LOG Monitor: %d params:%s:%s:%s", argc, argv[1], argv[2], argv[3]);
+		printf("Len of file: %d", strlen(argv[3])); fflush(stdout);
+		//strncpy(configFile, argv[3], strlen(argv[3]));
+		//configFile[strlen[argv[3]] = '\0';
+		// Read in the config for customer id: argv[1]
+		jsonData = parse(argv[1], fmont, argv[3]);
+	} else {
+		log_debug(fmont, "LOG Monitor: %d params:%s:%s", argc, argv[1], argv[2]);
+		// Read in the config for customer id: argv[1]
+		jsonData = parse(argv[1], fmont, NULL);
+	}
 	if (jsonData == NULL) {
 		log_error(fmont, "Config error in /var/monT/%s: Exiting mont_cust process",
 				argv[1]);
 		fflush(fmont); 
 		goto error;
 	}
-	if(strcmp(argv[2], "ssl") == 0) {
+	if(strcasecmp(argv[2], "ssl") == 0) {
 		// mont_cust 100 ssl
 		log_info(fmont, "SSL Functional Testing..");
 		startSslThread(jsonData);
-	} else if(strcmp(argv[2], "ssl_perf") == 0) {
+	} else if(strcasecmp(argv[2], "ssl_perf") == 0) {
 		// mont_cust 100 ssl_perf
 		log_info(fmont, "SSL Performance Testing..");
 		startSslPerfThread(jsonData);
-	} else if(strcmp(argv[2], "http") == 0) {
+	} else if(strcasecmp(argv[2], "http") == 0) {
 		// mont_cust 100 ssl_perf
 		log_info(fmont, "HTTP Testing..");
 		startHttpThread(jsonData);
-	} else if(strcmp(argv[2], "bgp") == 0) {
+	} else if(strcasecmp(argv[2], "bgp") == 0) {
 		// mont_cust 100 ssl_perf
 		log_info(fmont, "BGP Testing..");
 		startBgpThread(jsonData);

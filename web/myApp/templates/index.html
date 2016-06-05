@@ -17,7 +17,7 @@
 		{% for config in configs  %}
 			<a href ="{% url 'cfg_detail' slug=config.slug %}">Customer:{{config.custID}}</a>
 			Customer: ID:{{ config.custID }}, Server:{{ config.serverIP }},
-			Protocol: {{ config.protocol }}
+			Protocol: {{ config.protocol }}, Port: {{ config.port }}
 			<p></p>
 		{% endfor %}
 	</p>
