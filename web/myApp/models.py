@@ -19,7 +19,7 @@ class cfg(models.Model):
 	pathLen = models.IntegerField()
 	pathValue = models.IntegerField()
 	pathValueNextHop = models.GenericIPAddressField()
-	nriLen =  models.IntegerField()
+	nlriLen =  models.IntegerField()
 	nlriPrefix = models.GenericIPAddressField()
 	nlriRepeat = models.IntegerField()
 	repeatUpdate = models.IntegerField()
