@@ -5,6 +5,7 @@ from myApp.forms import cfgForm
 from subprocess import Popen
 from django.core import serializers
 import json
+import string
 
 running = False
 
@@ -31,13 +32,17 @@ def run_cfg(request, slug):
 	# now extract the inner `fields` dicts
 	actual_data = [d['fields'] for d in raw_data]
 	# and now dump to JSON
-	output = json.dumps(actual_data)
-	print (output)
+	outputStr = json.dumps(actual_data)
+	print (outputStr)
 	print(cfgs.custID)
+	# Remove [{ and }] from the "output", since they interfere with the parser
+	op1 = outputStr.lstrip('[{')
+	op2 = op1.strip('}]')
+	print (op2)
 
 	#Open new data file
 	configFile = open("/home/asethi/monitor/bin/cc-1", "w")
-	configFile.write(output)
+	configFile.write(op2)
 	configFile.close()
 
 	cmd_str = "/home/asethi/monitor/monitor/mont_cust " +  str(cfgs.custID) + " " +  cfgs.protocol + " /home/asethi/monitor/bin/cc-1"
@@ -68,5 +73,5 @@ def edit_cfg(request, slug):
 
 	# and render the template
 	return render(request, 'edit_cfg.html', {
-		'thing': cfgs, 'form': form, })
+		'configs': cfgs, 'form': form, })
 	

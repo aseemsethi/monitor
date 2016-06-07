@@ -28,5 +28,5 @@ urlpatterns = [
 			name ='edit_cfg'),
 	url( r'^run/(?P<slug>[-\w]+)/$', 'myApp.views.run_cfg',
 			name ='run_cfg'),
-	url( r' ^admin/', include(admin.site.urls)),
+	url( r'^admin/', include(admin.site.urls)),
 ]
