@@ -26,7 +26,7 @@ urlpatterns = [
 			 name='cfg_detail'), 
 	url( r'^cfg/(?P<slug>[-\w]+)/edit/$', 'myApp.views.edit_cfg',
 			name ='edit_cfg'),
-	url( r'^run/(?P<slug>[-\w]+)/$', 'myApp.views.run_cfg',
+	url( r'^run/(?P<slug>[-\w]+)/(?P<proto>[-\w]+)/$', 'myApp.views.run_cfg',
 			name ='run_cfg'),
 	url( r'^admin/', include(admin.site.urls)),
 ]

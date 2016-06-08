@@ -21,19 +21,15 @@ def cfg_detail(request, slug):
 	return render( request, 'cfg_detail.html', 
 				{'configs': cfgs} )
 
-def run_cfg(request, slug):
-    # grab the object...
+def run_cfg(request, slug, proto):
 	cfgs = cfg.objects.get(slug=slug)
-	print ("Executing Test Case: ")
-	'''json_data = serializers.serialize('json',  [cfg.objects.get(slug=slug)])
-	print (json_data);'''
+	print ("Executing Test Case: " + proto)
 	# this gives you a list of dicts
 	raw_data = serializers.serialize('python', [cfg.objects.get(slug=slug)])
 	# now extract the inner `fields` dicts
 	actual_data = [d['fields'] for d in raw_data]
 	# and now dump to JSON
 	outputStr = json.dumps(actual_data)
-	print (outputStr)
 	print(cfgs.custID)
 	# Remove [{ and }] from the "output", since they interfere with the parser
 	op1 = outputStr.lstrip('[{')
@@ -45,7 +41,7 @@ def run_cfg(request, slug):
 	configFile.write(op2)
 	configFile.close()
 
-	cmd_str = "/home/asethi/monitor/monitor/mont_cust " +  str(cfgs.custID) + " " +  cfgs.protocol + " /home/asethi/monitor/bin/cc-1"
+	cmd_str = "/home/asethi/monitor/monitor/mont_cust " +  str(cfgs.custID) + " " +  proto + " /home/asethi/monitor/bin/cc-1"
 	proc = Popen([cmd_str], shell=True,
 		stdin=None, stdout=None, stderr=None, close_fds=True)
 	return render( request, 'cfg_detail.html', 

@@ -191,6 +191,8 @@ sslPerfTestsExec (xmlData_t* xmlData) {
 		}
 		sleep(1);
 	}
+   	log_info(fp, "SSL: Completed conn/sec test, number of conn:%d", i);
+	fflush(fp);
 	for (i = 0; i < xmlData->sslPerSec; i++) {
 		//sslPerfFreeConn(sslPfQ[i], xmlData); 
 	}
@@ -264,6 +266,11 @@ void* sslPerfStart(void *args) {
     sprintf(&filePath[strlen("/var/monT/")], "%d", xmlData->custID);
     sprintf(&filePath[strlen(filePath)], "/ssl_perf_stats");
     fsslPerfStats = fopen(filePath, "a");
+
+	if (xmlData->totalConn == 0) xmlData->totalConn=1;
+	if (xmlData->sslPerSec == 0) xmlData->sslPerSec=1;
+	if (xmlData->totalHello == 0) xmlData->totalHello=1;
+	if (xmlData->helloPerSec == 0) xmlData->helloPerSec=1;
 
     fprintf(fp, "\nSSL Performance Tests started, Conn/Sec: %d", xmlData->sslPerSec);
 	fflush(fp);
