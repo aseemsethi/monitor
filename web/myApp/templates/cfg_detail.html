@@ -8,18 +8,19 @@
     <h1>Protocol Configuration Details</h1>
     <!-- here’s the variable we are passing in -->
 	<p> 
-		Customer: ID:{{ configs.custID }}, Server:{{ configs.serverIP }}
-		<a class="btn btn-success" href="{% url 'edit_cfg' slug=configs.slug %}">Edit</a>
-		<h3>Run Tests:</h3>
+		<h4>Customer: ID:{{ configs.custID }}, Server:{{ configs.serverIP }}
+		</h4>
+		<a href="{% url 'edit_cfg' slug=configs.slug %}" class="btn btn-info btn-lg"><span class="glyphicon glyphicon-edit"></span>Edit</a>
+		<h4>Run Tests:</h4>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="bgp"%}">BGP</a>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="ssl"%}">SSL</a>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="ssl_perf"%}">SSL_PERF</a>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="http_perf"%}">HTTP_PERF</a>
 	</p>
 		{% if running == True %}
-			Running....
+			<p>Running: <span class="glyphicon glyphicon-ok"></span></p> 
 		{% else %}
-			Stopped	
+			<p>Stopped: <span class="glyphicon glyphicon-remove"></span></p> 
 		{% endif %}
 {% endblock content %}
 

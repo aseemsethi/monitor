@@ -104,7 +104,7 @@ void* httpStart(void *args) {
 	// waiting for pkts
 	printf("\n Entering CLI loop"); fflush(stdout);
 	while(1) {
-		sleep(2); 
+		sleep(5); 
 		continue;
 	}
 

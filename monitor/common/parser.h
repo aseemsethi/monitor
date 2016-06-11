@@ -20,7 +20,7 @@ typedef struct {
 
 	// HTTP Params
     char url[255];
-    int httpSessions;
+    int httpRepeat;
     int httpParallel;
     int pktSize;
     int httpVerbose;

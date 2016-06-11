@@ -31,9 +31,11 @@
     <thead> <tr> <th>BGP</th> <th></th> </tr> </thead>
     <tbody>
       <tr> <td>Version</td> 
-		<td><input id="version" type="number" name="version" value="4"/> </tr>
+		<td><input id="version" type="number" name="version" value={{configs.version}} /> </tr>
       <tr> <td>My AS</td> 
-		<td><input id="myas" type="number" name="myas" value="100"/> </tr>
+		<td><input id="myas" type="number" name="myas" value={{configs.myas}} /> </tr>
+      <tr> <td>Router ID</td> 
+		<td><input id="routerID" type="text" name="routerID" value={{configs.routerID}} /> </tr>
     </tbody>
   </table>
   <button type="submit">Submit</button>

@@ -74,11 +74,12 @@ int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
   int msgs_left; /* how many messages are left */ 
   int httpParallel = jsonData->httpParallel;
   verbose = jsonData->httpVerbose;
-  int completedParallel = 0;
+  int completed = 0;
 
   /* init a multi stack */ 
   multi_handle = curl_multi_init();
  
+again: 
   /* Allocate one CURL handle per transfer */ 
   if (strlen(jsonData->url) == 0) {
     log_info(fp, "\n No url given, auto assign urls");
@@ -89,9 +90,8 @@ int curl_main(jsonData_t *jsonData, FILE *fhttpStats, FILE *fp)
     for(i=0; i<httpParallel; i++)
 		handles[i] = init(multi_handle, i, jsonData->url);
   }
-again: 
   /* we start some action by calling perform right away */ 
-  log_info(fhttpStats, "Starting multi handle: %d parallel sessions", httpParallel);
+  log_info(fhttpStats, "Starting multi handle: %d parallel sessions, Repeat Index: %d", httpParallel, completed);
   fflush(fhttpStats);
   curl_multi_perform(multi_handle, &still_running);
  
@@ -180,19 +180,16 @@ again:
         log_info(fhttpStats, "Stats: respcode:%d, redirect-count:%d, dlSpeed:%.2fKB/sec, filesize:%0.0f, filetime:%s", 
 			respcode, redirect, dlSpeed/1024, filesize, ctime(&filetime)); 
 		fflush(fhttpStats);
-        //curl_multi_remove_handle(multi_handle, e);
-        //curl_easy_cleanup(e);
       } else {
         log_error(fp, "E: CURLMsg (%d)\n", msg->msg); fflush(fp);
       }	
   }
 
-/*
-  completedParallel += httpParallel;
-  if (completedParallel < jsonData->httpSessions) {
+  completed += 1;
+  if (completed < jsonData->httpRepeat) {
+	printf("\n HTTP Repeating.....");
     goto again;
   }
-*/
  
   curl_multi_cleanup(multi_handle);
  
