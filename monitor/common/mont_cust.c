@@ -19,6 +19,20 @@ void* sslStart(void *args);
 void* sslPerfStart(void *args);
 void* httpStart(void *args);
 void* bgpStart(void *args);
+void* ovStart(void *args);
+
+startOpenVpnThread(jsonData_t* jsonData) {
+	struct stat st;
+	char filePath[100];
+	
+	// Create OPENVPN thread
+	log_debug(fmont, "CUST: Create OPENVPN thread.."); fflush(fmont);
+	if (pthread_create(&httpPID, NULL, ovStart, (void*)jsonData)) {
+		log_error(fmont, "Error creating OPENVPN Thread"); fflush(fmont);
+		exit(1);
+	}
+	fflush(fmont);
+}
 
 startBgpThread (jsonData_t* jsonData) {
 	struct stat st;
@@ -126,22 +140,22 @@ main(int argc, char *argv[]) {
 		fflush(fmont); 
 		goto error;
 	}
+	// mont_cust 100 <protocol>
 	if(strcasecmp(argv[2], "ssl") == 0) {
-		// mont_cust 100 ssl
 		log_info(fmont, "SSL Functional Testing..");
 		startSslThread(jsonData);
 	} else if(strcasecmp(argv[2], "ssl_perf") == 0) {
-		// mont_cust 100 ssl_perf
 		log_info(fmont, "SSL Performance Testing..");
 		startSslPerfThread(jsonData);
 	} else if(strcasecmp(argv[2], "http") == 0) {
-		// mont_cust 100 ssl_perf
 		log_info(fmont, "HTTP Testing..");
 		startHttpThread(jsonData);
 	} else if(strcasecmp(argv[2], "bgp") == 0) {
-		// mont_cust 100 ssl_perf
 		log_info(fmont, "BGP Testing..");
 		startBgpThread(jsonData);
+	} else if(strcasecmp(argv[2], "openvpn") == 0) {
+		log_info(fmont, "OpenVPN Testing..");
+		startOpenVpnThread(jsonData);
 	}
 	fflush(fmont);
 error:

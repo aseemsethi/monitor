@@ -3,6 +3,10 @@ This is a Monitor Application v2.0. Testing support for the following are implem
 - HTTP Performance
 - IKEv2 Functional and Performance
 
+Clone a new tree
+----------------
+git clone https://aseemsethi@github.com/aseemsethi/monitor.git
+
 Libraries to be installed:
 openssl, openssl-devel, curl, curl-devel, expat
 yum install gcc-c++
@@ -24,8 +28,8 @@ The SSL Test Process executes all tests, and write:
 Example of Config on /var/monT/100/config.json
 "Params": "General"
 "custID": "100"
-"#serverIP": "127.0.0.1"
-"serverIP": "192.168.1.107"
+"serverIP": "127.0.0.1"
+"#serverIP": "192.168.1.107"
 
 "Params": "SSL"
 "sslPort": "4433"
@@ -40,7 +44,7 @@ Example of Config on /var/monT/100/config.json
 "#url":"http://www.a1.test2.com/200.txt"
 "url":"http://www.yahoo.com"
 "httpVerbose": "0"
-"httpSessions": "4"
+"httpRepeat": "5"
 "httpParallel": "2"
 "pktSize": "200"
 
@@ -75,6 +79,11 @@ Example of Config on /var/monT/100/config.json
 "nlri len":"32"
 "nlri prefix":"100.101.102.103"
 "repeat nlri":"20"
+"repeat update":"1"
+
+HTTP Tool
+========
+For httpRepeat times, the HTTP Tool will do a parallel get using httpParallel threads. Each thread will be loaded with either the given url param, or from the code, if no url is provided.
 
 BGP Tool
 ========

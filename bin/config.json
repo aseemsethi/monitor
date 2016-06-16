@@ -16,7 +16,7 @@
 "#url":"http://www.a1.test2.com/200.txt"
 "url":"http://www.yahoo.com"
 "httpVerbose": "0"
-"httpSessions": "4"
+"httpRepeat": "5"
 "httpParallel": "2"
 "pktSize": "200"
 

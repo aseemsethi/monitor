@@ -5,22 +5,27 @@
 <button type="button" class="btn btn-success">Edit</button>
 
 {% block content %}
-    <h1>Protocol Configuration Details</h1>
+    <h2>Protocol Configuration Details</h2>
     <!-- here’s the variable we are passing in -->
 	<p> 
-		<h4>Customer: ID:{{ configs.custID }}, Server:{{ configs.serverIP }}
-		</h4>
+		<h4>Customer: ID:{{configs.custID}}, Server:{{configs.serverIP}}</h4>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 		<a href="{% url 'edit_cfg' slug=configs.slug %}" class="btn btn-info btn-lg"><span class="glyphicon glyphicon-edit"></span>Edit</a>
+		<br> <br>
+	<center>
 		<h4>Run Tests:</h4>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="bgp"%}">BGP</a>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="ssl"%}">SSL</a>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="ssl_perf"%}">SSL_PERF</a>
 		<a class="btn btn-primary" href="{% url 'run_cfg' slug=configs.slug proto="http_perf"%}">HTTP_PERF</a>
+	</center>
 	</p>
-		{% if running == True %}
-			<p>Running: <span class="glyphicon glyphicon-ok"></span></p> 
-		{% else %}
-			<p>Stopped: <span class="glyphicon glyphicon-remove"></span></p> 
-		{% endif %}
+	<br> <center>
+	{% if running == True %}
+		<p>Stats: Running <span class="glyphicon glyphicon-ok"></span></p> 
+	{% else %}
+		<p>Status: Stopped <span class="glyphicon glyphicon-remove"></span></p> 
+	{% endif %}
+	</center>
 {% endblock content %}
 

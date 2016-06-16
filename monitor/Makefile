@@ -12,6 +12,7 @@ csrc = $(wildcard ssl/*.c)  \
 	$(wildcard ssl_perf/*.c) \
 	$(wildcard http/*.c) \
 	$(wildcard ikev2/*.c) \
+	$(wildcard openvpn/*.c) \
 	$(wildcard bgp/*.c) 
 
 obj = $(csrc:.c=.o)
@@ -25,7 +26,8 @@ $(MONT): $(obj)
 	$(CXX) -g -o $@ $^ $(LDFLAGS)
 
 clean:
-	$(RM) core* ssl/*.o ssl_perf/*.o http/*.o bgp/*.o common/*.o mont_cust
+	$(RM) core* ssl/*.o ssl_perf/*.o http/*.o bgp/*.o common/*.o \
+		ikev2/*.o openvpn/*.o mont_cust
 
 install:
 	cp $(MONT) ${INSTDIR}
