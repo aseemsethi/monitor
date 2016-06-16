@@ -1,6 +1,7 @@
 "Params": "General"
 "custID": "100"
-"serverIP": "127.0.0.1"
+"serverIP": "10.0.2.15"
+"#serverIP": "127.0.0.1"
 "#serverIP": "192.168.1.107"
 
 "Params": "SSL"
