@@ -14,6 +14,7 @@
 #include "../common/util.h"
 #include "openvpn.h"
 #include <openssl/ssl.h>
+#include <openssl/hmac.h>
 
 FILE *fp;
 FILE *fovStats;
@@ -27,22 +28,48 @@ ovStruct_t ovS;
 openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 	uchar tmpPtr[512];
 	int tmpLen, i;
-	//unsigned char hash[SHA_DIGEST_LENGTH];
-	uchar *hash;
-	uchar key[] = "d8cb7f984684431f75f8895e244de77dea3a5c4e559b217a39a1c4d7e0235a50dac091004acba188cc20796545db389983f8e156e064f82c9e30c1961472474c25211f2f4e2a500d133f19e24cd5f506c0a7e6f088d620d3df2ab208800c6ad64015aebf304d6b01bbf9f5e6333aace1e1fcff34545cf46044e2e33b7110da8db36b0ba225c289ad790477dcaeb3fc27e1c2f498912403dc661921eef9fd47bed857e6eba6d531381c35dcaffbf901db5ceb0d1db9454026df49f21470319a66ac3c20bbb7548d9a8d9c9fdd76de221425fccc078521735a88d5f04c9d62d03382e280ece65d1179694d5efeca1b55c1ccd42367c3f1cac4df452028a925c2d3";
+	unsigned char hash[SHA_DIGEST_LENGTH];
+	//uchar *hash;
+	// 5th line for outgoing from server
+	//uchar key[] = "\x25\x21\x1f\x2f\x4e\x2a\x50\x0d\x13\x3f\x19\xe2\x4c\xd5\xf5\x06\xc0\xa7\xe6\xf0";
+	// 13th line for incoming into server
+	uchar key[] = "\xac\x3c\x20\xbb\xb7\x54\x8d\x9a\x8d\x9c\x9f\xdd\x76\xde\x22\x14\x25\xfc\xcc\x07";
 
 	memcpy(tmpPtr, ptr, length);
-	memcpy(&tmpPtr[20], &tmpPtr[0], 9);
-	tmpLen = length-20;
+	memcpy(&tmpPtr[28], &tmpPtr[0], 9);
+	tmpLen = length-28;
+	// Copy pkt id + timestamp to the start of the pkt
+	memcpy(&tmpPtr[20], &ptr[29], 8);
+	tmpLen += 8;
 	printf("\nopenvpn_encrypt: HMAC at:%d in pkt of len:%d, newlen:%d",
 			hmac_index, length, tmpLen);
+	// printf("\nStrlen of hmac key = %d: ", strlen(key));
+	// hash = HMAC(EVP_sha1(), key, strlen(key), &tmpPtr[28], tmpLen, NULL, NULL);
+	{
+	uchar *output = NULL;
+    HMAC_CTX hmac;
+    unsigned int in_hmac_len = 0;
+	ENGINE_load_builtin_engines();
+	ENGINE_register_all_complete();
+
+	HMAC_CTX_init(&hmac);
+    HMAC_Init_ex(&hmac, key, 20, EVP_sha1(), NULL);
+    HMAC_Update(&hmac,  &tmpPtr[20], tmpLen);
+    HMAC_Final(&hmac, hash, &in_hmac_len);
+    HMAC_CTX_cleanup(&hmac);
+	}
 	
-	// SHA1(&tmpPtr[20], tmpLen, hash);
 	// hash now contains the 20-byte SHA-1 hash
-	hash = HMAC(EVP_sha1(), key, strlen(key), &tmpPtr[20], tmpLen, NULL, NULL);
 	memcpy(&ptr[hmac_index], hash, SHA_DIGEST_LENGTH);
+	printf("\n HMAC KEY: ");
+	for (i=0;i<20;i++)
+		printf("%2x ",key[i]);
+	printf("\n HMAC ON DATA: ");
 	for (i=0;i<tmpLen;i++)
 		printf("%2x ",tmpPtr[20+i]);
+	printf("\n HMAC SHA1: ");
+	for (i=0;i<20;i++)
+		printf("%2x ",hash[i]);
 }
 
 void ovDisplay (void *buf, int bytes, jsonData_t* jsonData) {
