@@ -28,8 +28,8 @@ ovStruct_t ovS;
 openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 	uchar tmpPtr[512];
 	int tmpLen, i;
-	unsigned char hash[SHA_DIGEST_LENGTH];
-	//uchar *hash;
+	uchar *hash;
+
 	// 5th line for outgoing from server
 	//uchar key[] = "\x25\x21\x1f\x2f\x4e\x2a\x50\x0d\x13\x3f\x19\xe2\x4c\xd5\xf5\x06\xc0\xa7\xe6\xf0";
 	// 13th line for incoming into server
@@ -43,9 +43,14 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 	tmpLen += 8;
 	printf("\nopenvpn_encrypt: HMAC at:%d in pkt of len:%d, newlen:%d",
 			hmac_index, length, tmpLen);
-	// printf("\nStrlen of hmac key = %d: ", strlen(key));
-	// hash = HMAC(EVP_sha1(), key, strlen(key), &tmpPtr[28], tmpLen, NULL, NULL);
+	// Note that both the following HMAC versions work. Either way can be used.
+	// Both have been tested with the openvpn_as server.
 	{
+	hash = HMAC(EVP_sha1(), key, strlen(key), &tmpPtr[20], tmpLen, NULL, NULL);
+	}
+	/*
+	{
+	unsigned char hash[SHA_DIGEST_LENGTH];
 	uchar *output = NULL;
     HMAC_CTX hmac;
     unsigned int in_hmac_len = 0;
@@ -57,7 +62,7 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
     HMAC_Update(&hmac,  &tmpPtr[20], tmpLen);
     HMAC_Final(&hmac, hash, &in_hmac_len);
     HMAC_CTX_cleanup(&hmac);
-	}
+	}*/
 	
 	// hash now contains the 20-byte SHA-1 hash
 	memcpy(&ptr[hmac_index], hash, SHA_DIGEST_LENGTH);
@@ -94,29 +99,41 @@ void ovDisplay (void *buf, int bytes, jsonData_t* jsonData) {
     fflush(fp);
 }
 
-void ovListener (jsonData_t* jsonData) {
-	int sock;
-	struct sockaddr_in addr;
-	unsigned char buf[1024];
-	struct protoent* proto = NULL;
 
-	proto = getprotobyname("ICMP");
-	sock = socket(PF_INET, SOCK_RAW, proto->p_proto);
-	if (sock < 0) {
-		perror("socket");
-		exit(0);
-	}
-	log_debug(fp, "Entering OpenVPN Listener Loop...");
+void ovListener (ovStruct_t *ovP) {
+	int sock;
+    uchar buff[5000];  // uchar is important
+    int bytes_recv, index, i, j;
+    int set = 0;
+    int remBytes = 0;
+    ushort RecordHdrLengthRecvd = 0;
+	jsonData_t* jsonData = ovP->jsonData;
+
+	log_info(fp, "Entering OpenVPN Listener Loop..."); fflush(fp);
 	while(1) {
-		int bytes, len = sizeof(addr);
-		bzero(buf, sizeof(buf));
-		bytes = recvfrom(sock, buf, sizeof(buf), 0, 
-				(struct sockaddr*)&addr, &len);
-		if (bytes > 0)
-			ovDisplay(buf, bytes, jsonData);
-		else {
-			perror("recvfrom");
-		}
+        bytes_recv = recv(ovP->sock,&buff[0], 1, MSG_PEEK);
+        log_debug(fp, " bytes_recv = %d, ", bytes_recv); fflush(fp);
+        if (bytes_recv == -1) { perror("-1: Error during recv: "); exit(1); }
+        if (bytes_recv == 0) {
+            log_error(fp, "OpenVPN: Error: recvFunction: sock closed in recv, bytes_Recv = 0"); fflush(fp);
+            sleep(10); // This is so that the main has time to gather stats
+            exit(1); // No point keeping this since the sock is gone
+        }
+        switch((buff[0] & P_KEYID_MASK) >> 3) {
+        case P_CONTROL_HARD_RESET_SERVER_V2:
+            log_info(fp, "  <- OV: P_CONTROL_HARD_RESET_SERVER_V2"); 
+			fflush(fp); break;
+        default:
+            log_error(fp, " <- OV: Error pkt recvd: %d, ", buff[0]);
+            // We have some junk data. Throw it away
+            i=recv(ovP->sock,&buff[0], 512, 0);
+            log_info(fp, "..discarding %d len data\n", i); continue;
+        }
+        i=recv(ovP->sock,&buff[0], 512,MSG_DONTWAIT);
+        printf("\nTotal recvd %d", i);
+		for (j=0;j<i;j++)
+			printf("%2x ", buff[j]);
+		fflush(fp);
 	}
 	exit(0);
 }
@@ -226,12 +243,13 @@ void* ovStart(void *args) {
 	log_info(fp, "OpenVPN started: custID: %d, server:%s", 
 			jsonData->custID, jsonData->serverIP);
 
-	if (pthread_create(&threadPID, NULL, ovListener, jsonData)) {
+	ovExec(jsonData);
+
+	if (pthread_create(&threadPID, NULL, ovListener, &ovS)) {
 		log_info(fp, "\nError creating OpenVPN Listener Thread"); fflush(stdout);
 		exit(1);
 	}
-	
-	ovExec(jsonData);
+	fflush(fp);
 
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts
