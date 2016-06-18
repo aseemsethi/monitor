@@ -27,5 +27,6 @@ typedef struct {
     struct sockaddr_in server_addr;
     int sock;
     int seqNo;
+    int toAck;
 } ovStruct_t;
 

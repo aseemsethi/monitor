@@ -26,4 +26,5 @@ class cfgForm(ModelForm):
         self.fields['nlriPrefix'].required = False
         self.fields['nlriRepeat'].required = False
         self.fields['repeatUpdate'].required = False
+        self.fields['ovProto'].required = False
         self.fields['slug'].required = False

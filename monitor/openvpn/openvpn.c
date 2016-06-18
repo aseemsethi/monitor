@@ -41,8 +41,9 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 	// Copy pkt id + timestamp to the start of the pkt
 	memcpy(&tmpPtr[20], &ptr[29], 8);
 	tmpLen += 8;
-	printf("\nopenvpn_encrypt: HMAC at:%d in pkt of len:%d, newlen:%d",
+	log_info(fp, "\nopenvpn_encrypt: HMAC at:%d in pkt of len:%d, newlen:%d",
 			hmac_index, length, tmpLen);
+	fflush(fp);
 	// Note that both the following HMAC versions work. Either way can be used.
 	// Both have been tested with the openvpn_as server.
 	{
@@ -66,6 +67,7 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 	
 	// hash now contains the 20-byte SHA-1 hash
 	memcpy(&ptr[hmac_index], hash, SHA_DIGEST_LENGTH);
+#if DEBUG
 	printf("\n HMAC KEY: ");
 	for (i=0;i<20;i++)
 		printf("%2x ",key[i]);
@@ -75,6 +77,7 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 	printf("\n HMAC SHA1: ");
 	for (i=0;i<20;i++)
 		printf("%2x ",hash[i]);
+#endif
 }
 
 void ovDisplay (void *buf, int bytes, jsonData_t* jsonData) {
@@ -119,20 +122,24 @@ void ovListener (ovStruct_t *ovP) {
             sleep(10); // This is so that the main has time to gather stats
             exit(1); // No point keeping this since the sock is gone
         }
+        i=recv(ovP->sock,&buff[0], 512,MSG_DONTWAIT);
+        log_info(fp, "Total recvd %d", i);
         switch((buff[0] & P_KEYID_MASK) >> 3) {
         case P_CONTROL_HARD_RESET_SERVER_V2:
             log_info(fp, "  <- OV: P_CONTROL_HARD_RESET_SERVER_V2"); 
-			fflush(fp); break;
+			fflush(fp);
+			ovP->toAck = GET_BE32(&buff[50]);
+			log_info(fp, "toAck = %d", ovP->toAck); fflush(fp);
         default:
             log_error(fp, " <- OV: Error pkt recvd: %d, ", buff[0]);
             // We have some junk data. Throw it away
             i=recv(ovP->sock,&buff[0], 512, 0);
             log_info(fp, "..discarding %d len data\n", i); continue;
         }
-        i=recv(ovP->sock,&buff[0], 512,MSG_DONTWAIT);
-        printf("\nTotal recvd %d", i);
+#ifdef DEBUG
 		for (j=0;j<i;j++)
 			printf("%2x ", buff[j]);
+#endif
 		fflush(fp);
 	}
 	exit(0);
@@ -140,8 +147,8 @@ void ovListener (ovStruct_t *ovP) {
 
 ovUDPSend(ovStruct_t *ovP, uchar *ptr, int length) {
 	int sent, i;
-	printf("\novUDPSend: %d to sock:%d", length, ovP->sock);
-	fflush(stdout);
+	log_info(fp, "\novUDPSend: %d to sock:%d", length, ovP->sock);
+	fflush(fp);
 	sent = sendto(ovP->sock, ptr, length, 0, 
 		(struct sockaddr *)&ovP->server_addr, sizeof(ovP->server_addr));
 	if(sent < 0) {
