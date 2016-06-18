@@ -24,7 +24,7 @@ urlpatterns = [
 	url( r'^contact/$', TemplateView.as_view(template_name ='contact.html'), name ='contact'),
 	url( r'^cfg/(?P<slug>[-\w]+)/$', 'myApp.views.cfg_detail',
 			 name='cfg_detail'), 
-	url( r'^cfg/(?P<slug>[-\w]+)/edit/$', 'myApp.views.edit_cfg',
+	url( r'^cfg/(?P<slug>[-\w]+)/(?P<proto>[-\w]+)/edit/$', 'myApp.views.edit_cfg',
 			name ='edit_cfg'),
 	url( r'^run/(?P<slug>[-\w]+)/(?P<proto>[-\w]+)/$', 'myApp.views.run_cfg',
 			name ='run_cfg'),

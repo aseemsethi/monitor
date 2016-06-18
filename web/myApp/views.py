@@ -47,7 +47,8 @@ def run_cfg(request, slug, proto):
 	return render( request, 'cfg_detail.html', 
 				{'configs': cfgs, 'running':True} )
 
-def edit_cfg(request, slug):
+def edit_cfg(request, slug, proto):
+	print ("Configuration for: " + proto)
     # grab the object...
 	cfgs = cfg.objects.get(slug=slug)
 
@@ -69,5 +70,5 @@ def edit_cfg(request, slug):
 
 	# and render the template
 	return render(request, 'edit_cfg.html', {
-		'configs': cfgs, 'form': form, })
+		'configs': cfgs, 'form': form, 'proto':proto})
 	

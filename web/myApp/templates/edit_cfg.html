@@ -21,13 +21,15 @@
     <thead> <tr> <th>General</th> <th></th> </tr> </thead>
     <tbody>
 		<tr> <td>ServerIP</td>
-		<td><input id="serverIP" type="text" name="serverIP" value="127.0.0.1" maxlength="20"/> </tr>
+		<td><input id="serverIP" type="text" name="serverIP" value={{configs.serverIP}} maxlength="20"/> </tr>
     </tbody>
+	{% if proto == "ssl" %}
     <thead> <tr> <th>SSL</th> <th></th> </tr> </thead>
     <tbody>
       <tr> <td>SSL Port</td> 
 		<td><input id="sslPort" type="number" name="sslPort" value={{configs.sslPort}} /></tr>
     </tbody>
+	{% elif proto == "bgp" %}
     <thead> <tr> <th>BGP</th> <th></th> </tr> </thead>
     <tbody>
       <tr> <td>Version</td> 
@@ -37,6 +39,13 @@
       <tr> <td>Router ID</td> 
 		<td><input id="routerID" type="text" name="routerID" value={{configs.routerID}} /> </tr>
     </tbody>
+	{% elif proto == "openvpn" %}
+    <thead> <tr> <th>OpenVPN</th> <th></th> </tr> </thead>
+    <tbody>
+      <tr> <td>xxxx</td> 
+		<td><input id="xxxx" type="number" name="xxxx" value={{configs.sslPort}} /></tr>
+    </tbody>
+	{% endif %}
   </table>
   <button type="submit">Submit</button>
   </form>
