@@ -129,11 +129,16 @@ void ovListener (ovStruct_t *ovP) {
             log_info(fp, "  <- OV: P_CONTROL_HARD_RESET_SERVER_V2"); 
 			fflush(fp);
 			ovP->toAck = GET_BE32(&buff[50]);
+			memcpy(ovP->toSessionID, &buff[1], 8);
 			log_info(fp, "toAck = %d", ovP->toAck); fflush(fp);
+			printf("\ntoSession ID: ");
+			for (j=0;j<8;j++)
+				printf("%2x ", ovP->toSessionID[j]);
+			fflush(stdout);
+			sendAckV1(ovP, jsonData);
         default:
             log_error(fp, " <- OV: Error pkt recvd: %d, ", buff[0]);
             // We have some junk data. Throw it away
-            i=recv(ovP->sock,&buff[0], 512, 0);
             log_info(fp, "..discarding %d len data\n", i); continue;
         }
 #ifdef DEBUG
@@ -178,6 +183,49 @@ int initConnectionToServerOV(ovStruct_t *ovP, jsonData_t* jsonData) {
 	return sock;
 }
 
+sendAckV1(ovStruct_t *ovP, jsonData_t *jsonData) {
+	char buff[1024];
+    struct timeval tv;
+    time_t curtime;
+	int i, index, hmac_index;
+	int tlsAuth = 1;
+	
+    gettimeofday(&tv, NULL);
+    curtime=tv.tv_sec;
+	// Pkt type - 1 byte P_ACK_V1
+	buff[0] = P_ACK_V1 << 3;
+	// session id - 8 bytes
+    PUT_BE32(&buff[1], 0);
+    PUT_BE32(&buff[5], 1);
+	index = 9;
+	// Put the Overall seq number for replay protection and timestamp
+	// only if tlsAuth is enabled for this client.
+	if (tlsAuth == 1) {
+		// HMAC - 20 bytes
+		hmac_index=index;
+		for (i=0;i<20;i++)
+			buff[index+i] = 0x0;
+		index += 20;
+		// Replay Packet ID
+    	PUT_BE32(&buff[index], ovP->replayNo);
+		ovP->replayNo++;
+		index += 4;
+		// Time Stamp - not needed in case of TLS - but, we put this 
+		// for initial pkts
+    	PUT_BE32(&buff[index], curtime);
+		index += 4;
+	}
+	// ACK + ACK Buffer = 0;
+	buff[index] = 0x1; index+=1;
+	PUT_BE32(&buff[index], ovP->toAck); 
+	index+=4;
+	memcpy(&buff[index], ovP->toSessionID, 8);
+	index +=8;
+	openvpn_encrypt(ovP, buff, index, hmac_index);
+	ovUDPSend(ovP, buff, index);
+}
+
+
 sendHardReset(ovStruct_t *ovP, jsonData_t *jsonData) {
 	char buff[1024];
     struct timeval tv;
@@ -201,8 +249,9 @@ sendHardReset(ovStruct_t *ovP, jsonData_t *jsonData) {
 		for (i=0;i<20;i++)
 			buff[index+i] = 0x0;
 		index += 20;
-		// Packet ID = 1
-    	PUT_BE32(&buff[index], 1);
+		// Replay Packet ID = 1
+    	PUT_BE32(&buff[index], ovP->replayNo);
+		ovP->replayNo++;
 		index += 4;
 		// Time Stamp - not needed in case of TLS - but, we put this 
 		// for initial pkts
@@ -225,6 +274,7 @@ sendHardReset(ovStruct_t *ovP, jsonData_t *jsonData) {
 void ovExec(jsonData_t* jsonData) {
 	ovStruct_t *ovP = &ovS;
 	ovP->seqNo = 0;
+	ovP->replayNo = 1;
 
 	ovP->sock = initConnectionToServerOV(ovP, jsonData); 
 	sendHardReset(ovP, jsonData);

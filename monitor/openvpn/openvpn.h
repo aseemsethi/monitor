@@ -27,6 +27,10 @@ typedef struct {
     struct sockaddr_in server_addr;
     int sock;
     int seqNo;
+    int replayNo;
+
+	// Recvd from the peer
     int toAck;
+	uchar toSessionID[8];
 } ovStruct_t;
 
