@@ -1,3 +1,30 @@
+typedef enum {
+        change_cipher_spec = 20, alert = 21, handshake = 22,
+        application_data = 23
+} ContentType;
+
+/* Record Protocol Header **********/
+typedef enum {  
+          hello_request=0, client_hello=1, server_hello=2,
+          certificate=11, server_key_exchange =12,
+          certificate_request=13, server_hello_done=14,
+          certificate_verify=15, client_key_exchange=16,
+          finished=20
+} HandshakeType;
+
+// TBD - change the following as _1 and _2 
+#define TLS_RSA_WITH_NULL_MD5 "0x00,0x01"
+#define TLS_RSA_WITH_NULL_SHA "0x00,0x02"
+#define TLS_RSA_WITH_NULL_SHA256 "0x00,0x3B"
+#define TLS_RSA_WITH_RC4_128_MD5 "0x00,0x04"
+#define TLS_RSA_WITH_RC4_128_SHA_1 0x00
+#define TLS_RSA_WITH_RC4_128_SHA_2 0x05
+#define TLS_RSA_WITH_3DES_EDE_CBC_SHA "0x00,0x0A"
+#define TLS_RSA_WITH_AES_128_CBC_SHA  "0x00,0x2F"
+#define TLS_RSA_WITH_AES_256_CBC_SHA  "0x00,0x35"
+#define TLS_RSA_WITH_AES_128_CBC_SHA256 "0x00,0x3C"
+#define TLS_RSA_WITH_AES_256_CBC_SHA256 "0x00,0x3D"
+
 /* packet opcode (high 5 bits) and key-id (low 3 bits) are combined in one byte */
 #define P_KEY_ID_MASK              0x07
 #define P_OPCODE_SHIFT             3
@@ -28,6 +55,11 @@ typedef struct {
     int sock;
     int seqNo;
     int replayNo;
+
+	// For SSL
+    uchar clientHandshakeMsgs[6000];
+    int clientHandshakeMsgsIndex;
+
 
 	// Recvd from the peer
     int toAck;

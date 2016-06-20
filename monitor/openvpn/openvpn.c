@@ -80,26 +80,80 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 #endif
 }
 
-void ovDisplay (void *buf, int bytes, jsonData_t* jsonData) {
+// RFC SSL 3.0 https://tools.ietf.org/html/rfc6101
+#define SSL_VERSION_1 3
+#define SSL_VERSION_2 1
+#define RECORD_HDR_LEN 5
+#define SSL_INNER_HDR_LEN 4
+/*
+ * Version used is 3.1 (TLS 1.0)
+ * https://tools.ietf.org/html/rfc2246
+ */
+int addSslHello (ovStruct_t *ovP, char* p) {
+    ushort length = 0;
+	uchar random[32];
+    char cipher[3];
+    int cipherLen;
+    time_t curtime;
     int i;
-    struct iphdr *ip = buf;
-    char src[INET_ADDRSTRLEN];
-    char dst[INET_ADDRSTRLEN];
 
-    inet_ntop(AF_INET, &ip->saddr, src, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &ip->daddr, dst, INET_ADDRSTRLEN);
-    i = inet_ntoa(ip->daddr);
-#ifdef DEBUG
-    for (i=0;i<bytes; i++) {
-        if (!(i&15)) log_debug(fp, "%2X: ", i);
-        log_debug(fp, "%2X ", ((unsigned char*)buf)[i]);
-    }
-#endif
-    log_info(fp, "IPv%d:hdr-size=%d pkt-size=%d protocol=%d TTL=%d",
-    ip->version, (ip->ihl)*4, ntohs(ip->tot_len), ip->protocol, ip->ttl);
-    log_info(fp, "src: %s, dst: %s", src, dst);
+    log_debug(fp, "OPENVPN SSL: SendHello"); fflush(stdout);
 
-    fflush(fp);
+    // Record Hdr (Type, Version, Length)
+    p[0] = 0x16;
+    // SSL 3.0 is 0x0300, TLS ver 1.0 = 3.1, TLS 1.2 is 3.3, 
+    // SSL_VERSION used here is 3.1
+    p[1] = SSL_VERSION_1;
+    p[2] = SSL_VERSION_2;
+    PUT_BE16(&p[3], 0); // **** fill in this later at this point
+    // current length, used by sendData, and also in pkt
+    length = RECORD_HDR_LEN;
+
+    // Note that we have done 5 bytes by now, which should be substracted
+    // from the pkt length for the RecordProtocol.
+
+    p[5] = 0x01; // client_hello = 0x1
+    p[6] = 0;  // 3rd MSByte of the Length, usualy 0
+    // length of Handshake pkt following length field = 1 byte
+    PUT_BE16(&p[7], 0); // **** fill in this later at this point
+    length = length + 4;
+
+    p[9] =  SSL_VERSION_1;
+    p[10] = SSL_VERSION_2;
+    length = length + 2;
+
+	// Random Struct
+    PUT_BE32(&random[0], curtime);
+    for (i=4; i<=31; i++)
+            random[i] = 0;
+    memcpy(&p[11], &(random[0]), 32); 
+    length += 32;
+    p[43] = 0; // sessionID
+    length++;
+
+    // cypher suites
+    cipher[0] = 0; // Length of cypher suite
+    cipher[1] = 2; // Length of cypher suite
+    cipher[2] = TLS_RSA_WITH_RC4_128_SHA_1;
+    cipher[3] = TLS_RSA_WITH_RC4_128_SHA_2;
+    cipherLen = 4;
+    memcpy(&p[44], &(cipher[0]), cipherLen);
+    length += cipherLen; // currently set to 4
+
+    p[48] = 1; //length of compression vector
+    p[49] = 0; //compression algorithm
+    length += 2;
+
+    // Finally fill in the lengths of Record and Handshake headers
+    PUT_BE16(&p[3], length-RECORD_HDR_LEN);
+    PUT_BE16(&p[7], length-RECORD_HDR_LEN-4);
+    // Save Client Msgs for making the Finished Msg
+    memcpy(&(ovP->clientHandshakeMsgs[ovP->clientHandshakeMsgsIndex]),
+    &(p[5]), length-RECORD_HDR_LEN);
+    ovP->clientHandshakeMsgsIndex =
+        ovP->clientHandshakeMsgsIndex + length-RECORD_HDR_LEN;
+    log_debug(fp, "-> Send Client Hello, Len:%d", length); fflush(stdout);
+	return length;
 }
 
 
@@ -111,6 +165,7 @@ void ovListener (ovStruct_t *ovP) {
     int remBytes = 0;
     ushort RecordHdrLengthRecvd = 0;
 	jsonData_t* jsonData = ovP->jsonData;
+	int ssl_len;
 
 	log_info(fp, "Entering OpenVPN Listener Loop..."); fflush(fp);
 	while(1) {
@@ -136,6 +191,74 @@ void ovListener (ovStruct_t *ovP) {
 				printf("%2x ", ovP->toSessionID[j]);
 			fflush(stdout);
 			sendAckV1(ovP, jsonData);
+			sleep(1);
+			sendClientHello(ovP, jsonData);
+			break;
+        case P_ACK_V1:
+            log_info(fp, "  <- OV: P_ACK_V1"); 
+			fflush(fp);
+			break;
+        case P_CONTROL_V1:
+            log_info(fp, "  <- OV: P_CONTROL_V1"); 
+			fflush(fp);
+			index = 54;
+			// Check in the pkt now to see the SSL Pkt type
+			// Assuming 54 bytes OpenVPN Hdr, it the peer also is acking
+			// the Client Hello pkt, we need to jump these many bytes to 
+			// start decoding the SSL header
+        	switch(buff[index]) {
+	        case change_cipher_spec:
+   	             log_info(fp, "  <- SSL: Change Cipher"); break;
+   	     	case alert:
+   	             log_info(fp, "  <- SSL: Alert"); break;
+   	     	case handshake:
+   	             log_info(fp, "  <- SSL: Handshake"); break;
+   	     	case application_data:
+   	             log_info(fp, "  <- SSL: App data"); break;
+   	     	default:
+   	             log_error(fp, " <- SSL: Error pkt recvd: %d, ", buff[0]);
+			}
+			buff[index+3] = buff[index+3] & 0x7F; // clears the MSB # flag in MSByte
+			ssl_len = GET_BE16(&buff[index+3]);
+        	if (buff[index] == change_cipher_spec) { break; }
+        	if (buff[index] == alert) { break; }
+			switch(buff[index+5]) {
+        	case hello_request:
+                log_info(fp, "      <- Handshake Type: Hello Request"); break;
+        	case client_hello:
+                log_info(fp, "      <- Handshake Type: Client Hello"); break;
+        	case server_hello:
+                log_info(fp, "      <- Handshake Type:  Server Hello");
+                //recvServerHello(sslP);
+                break;
+        	case certificate:
+                log_info(fp, "      <- Handshake Type: Certificate");
+                //recvCertificate (sslP);
+                break;
+        	case server_key_exchange:
+                log_info(fp, "      <- Handshake Type: Server Key Exchange");
+                //sslP->paramP->handshakeResp |= set;
+                break;
+        	case certificate_request:
+                log_info(fp, "      <- Handshake Type: Certificate Request");
+                break;
+        	case server_hello_done:
+                log_info(fp, "      <- Handshake Type:  Server Hello Done");
+                //recvServerHelloDone(sslP);
+                break;
+        	case certificate_verify:
+                log_info(fp, "      <- Handshake Type: Certificate Verify"); break;
+                break;
+        	case client_key_exchange:
+                log_info(fp, "      <- Handshake Type: Client Key Exchange"); break;
+                break;
+        	case finished:
+                log_info(fp, "      <- Handshake Type: Finished");
+                break;
+        	default:
+                log_info(fp, "      <- Handshake Type: Unknown");
+			}
+			break;
         default:
             log_error(fp, " <- OV: Error pkt recvd: %d, ", buff[0]);
             // We have some junk data. Throw it away
@@ -182,6 +305,55 @@ int initConnectionToServerOV(ovStruct_t *ovP, jsonData_t* jsonData) {
 	fflush(fp);
 	return sock;
 }
+
+
+sendClientHello (ovStruct_t *ovP, jsonData_t *jsonData) {
+	char buff[1024];
+    struct timeval tv;
+    time_t curtime;
+	int i, index, hmac_index, len;
+	int tlsAuth = 1;
+	
+    gettimeofday(&tv, NULL);
+    curtime=tv.tv_sec;
+	// Pkt type - 1 byte P_CONTROL_HARD_RESET_CLIENT_V2
+	buff[0] = P_CONTROL_V1 << 3;
+	// session id - 8 bytes
+    PUT_BE32(&buff[1], 0);
+    PUT_BE32(&buff[5], 1);
+	index = 9;
+	// Put the Overall seq number for replay protection and timestamp
+	// only if tlsAuth is enabled for this client.
+	if (tlsAuth == 1) {
+		// HMAC - 20 bytes
+		hmac_index=index;
+		for (i=0;i<20;i++)
+			buff[index+i] = 0x0;
+		index += 20;
+		// Replay Packet ID = 1
+    	PUT_BE32(&buff[index], ovP->replayNo);
+		ovP->replayNo++;
+		index += 4;
+		// Time Stamp - not needed in case of TLS - but, we put this 
+		// for initial pkts
+    	PUT_BE32(&buff[index], curtime);
+		index += 4;
+	}
+	// ACK + ACK Buffer = 0;
+	buff[index] = 0x0; index+=1;
+	/* Note that we do not put any 4 byte seq id, if the ACK shows 0 bytes 
+	for (i=0;i<4;i++)
+		buff[index+i] = 0x0;
+	index+=4;
+	 */
+	PUT_BE32(&buff[index], ovP->seqNo); ovP->seqNo++;
+	index +=4;
+	len = addSslHello(ovP, &buff[index]);
+	index += len;
+	openvpn_encrypt(ovP, buff, index, hmac_index);
+	ovUDPSend(ovP, buff, index);
+}
+
 
 sendAckV1(ovStruct_t *ovP, jsonData_t *jsonData) {
 	char buff[1024];
@@ -265,7 +437,7 @@ sendHardReset(ovStruct_t *ovP, jsonData_t *jsonData) {
 		buff[index+i] = 0x0;
 	index+=4;
 	 */
-	PUT_BE32(&buff[index], ovP->seqNo);
+	PUT_BE32(&buff[index], ovP->seqNo); ovP->seqNo++;
 	index +=4;
 	openvpn_encrypt(ovP, buff, index, hmac_index);
 	ovUDPSend(ovP, buff, index);
@@ -275,6 +447,8 @@ void ovExec(jsonData_t* jsonData) {
 	ovStruct_t *ovP = &ovS;
 	ovP->seqNo = 0;
 	ovP->replayNo = 1;
+    ovP->clientHandshakeMsgsIndex = 0;
+
 
 	ovP->sock = initConnectionToServerOV(ovP, jsonData); 
 	sendHardReset(ovP, jsonData);
