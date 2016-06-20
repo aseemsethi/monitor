@@ -166,19 +166,19 @@ void ovListener (ovStruct_t *ovP) {
     ushort RecordHdrLengthRecvd = 0;
 	jsonData_t* jsonData = ovP->jsonData;
 	int ssl_len;
+	int saveLen = 0;
+	uchar saveBuff[5000];
 
 	log_info(fp, "Entering OpenVPN Listener Loop..."); fflush(fp);
 	while(1) {
-        bytes_recv = recv(ovP->sock,&buff[0], 1, MSG_PEEK);
-        log_debug(fp, " bytes_recv = %d, ", bytes_recv); fflush(fp);
+        bytes_recv = recv(ovP->sock,&buff[0], 3000, 0);
+        log_debug(fp, "OpenVPN Bytes_recv = %d, ", bytes_recv); fflush(fp);
         if (bytes_recv == -1) { perror("-1: Error during recv: "); exit(1); }
         if (bytes_recv == 0) {
             log_error(fp, "OpenVPN: Error: recvFunction: sock closed in recv, bytes_Recv = 0"); fflush(fp);
             sleep(10); // This is so that the main has time to gather stats
             exit(1); // No point keeping this since the sock is gone
         }
-        i=recv(ovP->sock,&buff[0], 512,MSG_DONTWAIT);
-        log_info(fp, "Total recvd %d", i);
         switch((buff[0] & P_KEYID_MASK) >> 3) {
         case P_CONTROL_HARD_RESET_SERVER_V2:
             log_info(fp, "  <- OV: P_CONTROL_HARD_RESET_SERVER_V2"); 
@@ -199,29 +199,71 @@ void ovListener (ovStruct_t *ovP) {
 			fflush(fp);
 			break;
         case P_CONTROL_V1:
-            log_info(fp, "  <- OV: P_CONTROL_V1"); 
-			fflush(fp);
-			index = 54;
+            log_info(fp, "  <- OV: P_CONTROL_V1"); fflush(fp);
+			// Note that if saveLen is non Zero, then we have a continued 
+			// SSL packet and we need to keep collecting the SSL pkt till
+			// we get the complete pkt.
+			if (saveLen != 0) {
+				// Continuing pkts do not have ACK data, and thus their
+				// len is 42 bytes.
+				ovP->toAck = GET_BE32(&buff[38]);
+				log_info(fp, "toAck: %d", ovP->toAck); fflush(fp);
+				memcpy(&saveBuff[saveLen], &buff[42], bytes_recv-42);
+				saveLen = saveLen + bytes_recv - 42;
+				saveBuff[3] = saveBuff[3] & 0x7F; // clears the MSB flag
+				ssl_len=GET_BE16(&saveBuff[3]);
+				if (saveLen >= (ssl_len+5)) {
+					log_info(fp, "We have complete SSL pkt %d of %d",
+						saveLen, ssl_len+5); fflush(fp);
+					// Control falls down to decoding the SSL hdr
+					memcpy(buff, saveBuff, (ssl_len+5));
+					index=0;
+					// But, first set the next ssl pkt if partially recvd.
+					memcpy(saveBuff, &saveBuff[ssl_len+5], saveLen-(ssl_len+5));
+					saveLen = saveLen - (ssl_len+5);
+					log_info(fp, "We have next partial SSL pkt of size %d",
+						saveLen); fflush(fp);
+				} else {
+					log_info(fp, "We have partial SSL pkt %d of %d",
+						saveLen, ssl_len+5); fflush(fp);
+					sendAckV1(ovP, jsonData);
+					continue;
+				}	
+			} else {
+				ovP->toAck = GET_BE32(&buff[50]);
+				// This occurs 1st time only for a complete or a partial pkt
+				index = 54;
+				buff[index+3] = buff[index+3] & 0x7F; // clears the MSB flag
+				ssl_len = GET_BE16(&buff[index+3]);
+				// If there is more than ssl_len+54+5 then we need to look for the 
+				// 2nd SSL pkt now.
+				if (bytes_recv > ssl_len+54+5) {
+					int left =  bytes_recv - (ssl_len+54+5);
+					log_info(fp, "Left over bytes: %d", left);
+					fflush(fp);
+					memcpy(&saveBuff[saveLen], &buff[ssl_len+54+5], left);
+					saveLen += left;
+				}
+			}
 			// Check in the pkt now to see the SSL Pkt type
 			// Assuming 54 bytes OpenVPN Hdr, it the peer also is acking
 			// the Client Hello pkt, we need to jump these many bytes to 
-			// start decoding the SSL header
+			// start decoding the SSL header.
         	switch(buff[index]) {
 	        case change_cipher_spec:
-   	             log_info(fp, "  <- SSL: Change Cipher"); break;
+   	             log_info(fp, "  <- SSL: Change Cipher: %d", ssl_len+5); break;
    	     	case alert:
-   	             log_info(fp, "  <- SSL: Alert"); break;
+   	             log_info(fp, "  <- SSL: Alert: %d", ssl_len+5); break;
    	     	case handshake:
-   	             log_info(fp, "  <- SSL: Handshake"); break;
+   	             log_info(fp, "  <- SSL: Handshake: %d", ssl_len+5); break;
    	     	case application_data:
-   	             log_info(fp, "  <- SSL: App data"); break;
+   	             log_info(fp, "  <- SSL: App data: %d", ssl_len+5); break;
    	     	default:
    	             log_error(fp, " <- SSL: Error pkt recvd: %d, ", buff[0]);
 			}
-			buff[index+3] = buff[index+3] & 0x7F; // clears the MSB # flag in MSByte
-			ssl_len = GET_BE16(&buff[index+3]);
         	if (buff[index] == change_cipher_spec) { break; }
         	if (buff[index] == alert) { break; }
+			// TBD: Logic needed to read multiple Handshake msgs in 1 msg
 			switch(buff[index+5]) {
         	case hello_request:
                 log_info(fp, "      <- Handshake Type: Hello Request"); break;
@@ -258,17 +300,18 @@ void ovListener (ovStruct_t *ovP) {
         	default:
                 log_info(fp, "      <- Handshake Type: Unknown");
 			}
+			sendAckV1(ovP, jsonData);
 			break;
         default:
             log_error(fp, " <- OV: Error pkt recvd: %d, ", buff[0]);
             // We have some junk data. Throw it away
-            log_info(fp, "..discarding %d len data\n", i); continue;
+            log_info(fp, "..discarding %d len data\n", bytes_recv); continue;
         }
 #ifdef DEBUG
 		for (j=0;j<i;j++)
 			printf("%2x ", buff[j]);
-#endif
 		fflush(fp);
+#endif
 	}
 	exit(0);
 }
