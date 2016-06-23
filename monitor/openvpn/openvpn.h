@@ -1,3 +1,7 @@
+#define SSL_VERSION_1 3
+#define SSL_VERSION_2 1
+#define RECORD_HDR_LEN 5
+#define SSL_INNER_HDR_LEN 4
 typedef enum {
         change_cipher_spec = 20, alert = 21, handshake = 22,
         application_data = 23

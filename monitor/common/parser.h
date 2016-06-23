@@ -8,6 +8,9 @@ typedef struct {
     int state;
     int custID;
     char serverIP[30]; // Same for Ping and SSL server
+	
+	// OpenVPN
+	char ovProto[4];
 
 	// SSL Params
 	int sslPort;

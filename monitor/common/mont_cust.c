@@ -11,7 +11,7 @@
 #include "log.h"
 
 FILE *fmont;
-pthread_t sslPID, sslPerfPID, httpPID;
+pthread_t sslPID, sslPerfPID, httpPID, ovPID;
 
 
 jsonData_t* parse (char*, FILE *flog, char* configFile);
@@ -27,7 +27,7 @@ startOpenVpnThread(jsonData_t* jsonData) {
 	
 	// Create OPENVPN thread
 	log_debug(fmont, "CUST: Create OPENVPN thread.."); fflush(fmont);
-	if (pthread_create(&httpPID, NULL, ovStart, (void*)jsonData)) {
+	if (pthread_create(&ovPID, NULL, ovStart, (void*)jsonData)) {
 		log_error(fmont, "Error creating OPENVPN Thread"); fflush(fmont);
 		exit(1);
 	}

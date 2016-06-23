@@ -15,6 +15,7 @@
 #include "openvpn.h"
 #include <openssl/ssl.h>
 #include <openssl/hmac.h>
+#include <openssl/evp.h>
 
 FILE *fp;
 FILE *fovStats;
@@ -26,7 +27,7 @@ ovStruct_t ovS;
  * init_key_ctx()
  */
 openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
-	uchar tmpPtr[512];
+	uchar tmpPtr[5000];
 	int tmpLen, i;
 	uchar *hash;
 
@@ -41,7 +42,7 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 	// Copy pkt id + timestamp to the start of the pkt
 	memcpy(&tmpPtr[20], &ptr[29], 8);
 	tmpLen += 8;
-	log_info(fp, "\nopenvpn_encrypt: HMAC at:%d in pkt of len:%d, newlen:%d",
+	log_info(fp, "openvpn_encrypt: HMAC at:%d in pkt of len:%d, newlen:%d",
 			hmac_index, length, tmpLen);
 	fflush(fp);
 	// Note that both the following HMAC versions work. Either way can be used.
@@ -80,11 +81,115 @@ openvpn_encrypt(ovStruct_t *ovP, uchar *ptr, int length, int hmac_index) {
 #endif
 }
 
+/*
+ * Record Hdr   : T V L(2 bytes)
+ * 		22 - Handshake
+ * 		V: 0x301
+ * 		L: 1430
+ * Handshake Hdr: T L(3 bytes) CertLen (3 Bytes)
+ * Handshake Hdr Len is 4 bytes smaller than Record Hdr Len
+ * 		(to cater for T and L of Handshake Hdr)
+ * Handshake Hdr:
+ * 		11 - Certificate
+ * 		Len - 1426
+ * 		Cert Len - 1423 ( 3 less than Handshake Hdr len)
+ * 		Cert Len - This is individual Cert Len (3 Bytes)
+ * 			signedCert	algo identifier	padding	encrypted data
+ * 		Cert Len - This is individual Cert Len (3 Bytes)
+ * 			signedCert	algo identifier	padding	encrypted data
+ * 		(These could be multiple Certs starting with  Len....)
+ */
+int addCert (ovStruct_t *ovP, char* p) {
+	ulong opensslerr=0;
+	int bufflen = 200;
+	char buff[bufflen];
+
+	OpenSSL_add_all_algorithms();
+	ERR_load_crypto_strings();
+	FILE *fCert = fopen("openvpn/asethi.pem", "r");
+	if (fCert == NULL) {
+		log_error(fp, "OPENVPN: error opening cert pem file");
+		return -1;
+	}
+	// Load certificate
+	X509 *cert = PEM_read_X509(fCert, NULL, NULL, NULL);
+	opensslerr = ERR_get_error();
+	if (opensslerr != 0) {
+		log_error(fp, "OPENVPN: reading cert error");
+		return -1;
+	}
+	fclose(fCert);
+	log_info(fp, "OpenVPN: certificate read"); fflush(fp);
+	X509_NAME *name = X509_get_subject_name(cert);
+	char *nameStr = X509_NAME_oneline(name, buff, bufflen);
+	log_info(fp, "Subject: %s", nameStr); fflush(fp);
+
+	// Get Cert Len once converted into DER
+	int certLen = i2d_X509(cert, NULL);
+	opensslerr = ERR_get_error();
+	if (opensslerr != 0) {
+		log_error(fp, "OPENVPN: reading cert len error");
+		return -1;
+	}
+	log_info(fp, "CertLen: %d", certLen); fflush(fp);
+	uchar *certBuff = (uchar*)malloc(certLen);
+	uchar *tmpPtr = certBuff;
+	if (i2d_X509(cert, &certBuff) < 0) {
+		opensslerr = ERR_get_error();
+		ERR_error_string_n(opensslerr, buff, bufflen);
+		log_error(fp, "OPENVPN: erro converting cert to buff: %s", buff);
+		return -1;
+	}
+	memcpy(p, tmpPtr, certLen);
+	return certLen;
+}
+
+int addClientCert (ovStruct_t *ovP, char* p) {
+    ushort length = 0;
+	uchar random[32];
+    char cipher[3];
+    int cipherLen;
+    time_t curtime;
+    int i, len;
+
+    log_debug(fp, "OPENVPN SSL: Send Client Cert"); fflush(stdout);
+
+    // Record Hdr (Type, Version, Length)
+    p[0] = 0x16;
+    // SSL 3.0 is 0x0300, TLS ver 1.0 = 3.1, TLS 1.2 is 3.3, 
+    // SSL_VERSION used here is 3.1
+    p[1] = SSL_VERSION_1;
+    p[2] = SSL_VERSION_2;
+    PUT_BE16(&p[3], 0); // **** fill in this later at this point
+    // current length, used by sendData, and also in pkt
+    length = RECORD_HDR_LEN;
+
+    // Note that we have done 5 bytes by now, which should be substracted
+    // from the pkt length for the RecordProtocol.
+
+    p[5] = 11; // certificate
+    length = length + 1;
+    p[6] = 0;  // 3rd MSByte of the Length, usualy 0
+    p[9] = 0;  // 3rd MSByte of the Length, usualy 0
+    p[12] = 0;  // 3rd MSByte of the Length, usualy 0
+    length = length + 9; // 2 cert lenths
+
+    // Starting p[6,7,8], we have outer cert len
+    // Starting p[9,10,11], we have inner cert len
+    // Starting p[12,13,14], we have inner cert len
+    printf("\nAdding certificate"); fflush(stdout);
+	len = addCert(ovP, &p[15]);
+	length += len; // Cert contents
+    // length of Certificate pkt following length field = 1 byte
+    PUT_BE16(&p[7], length-RECORD_HDR_LEN-4);
+    PUT_BE16(&p[10], length-RECORD_HDR_LEN-7);
+    PUT_BE16(&p[13], length-RECORD_HDR_LEN-10);
+    // Finally fill in the length of Record headers
+    PUT_BE16(&p[3], length-RECORD_HDR_LEN);
+	return length;
+}
+
 // RFC SSL 3.0 https://tools.ietf.org/html/rfc6101
-#define SSL_VERSION_1 3
-#define SSL_VERSION_2 1
-#define RECORD_HDR_LEN 5
-#define SSL_INNER_HDR_LEN 4
 /*
  * Version used is 3.1 (TLS 1.0)
  * https://tools.ietf.org/html/rfc2246
@@ -186,7 +291,7 @@ void ovListener (ovStruct_t *ovP) {
 			ovP->toAck = GET_BE32(&buff[50]);
 			memcpy(ovP->toSessionID, &buff[1], 8);
 			log_info(fp, "toAck = %d", ovP->toAck); fflush(fp);
-			printf("\ntoSession ID: ");
+			log_info(fp, "\nOpenVPN toSession ID: ");
 			for (j=0;j<8;j++)
 				printf("%2x ", ovP->toSessionID[j]);
 			fflush(stdout);
@@ -283,6 +388,13 @@ void ovListener (ovStruct_t *ovP) {
                 break;
         	case certificate_request:
                 log_info(fp, "      <- Handshake Type: Certificate Request");
+				// TBD: Check if Server Hello Done is also in this message
+				// We need a smarter way to parse multiple handshake msgs
+				// so that we dont use this kludge here
+				if (buff[bytes_recv-4] == 0x0E) {
+                	log_info(fp, "      <- Handshake Type: Server Hello Done");
+					sendClientCertificate(ovP, jsonData);
+				}
                 break;
         	case server_hello_done:
                 log_info(fp, "      <- Handshake Type:  Server Hello Done");
@@ -318,7 +430,7 @@ void ovListener (ovStruct_t *ovP) {
 
 ovUDPSend(ovStruct_t *ovP, uchar *ptr, int length) {
 	int sent, i;
-	log_info(fp, "\novUDPSend: %d to sock:%d", length, ovP->sock);
+	//log_info(fp, "ovUDPSend: %d to sock:%d", length, ovP->sock);
 	fflush(fp);
 	sent = sendto(ovP->sock, ptr, length, 0, 
 		(struct sockaddr *)&ovP->server_addr, sizeof(ovP->server_addr));
@@ -347,6 +459,53 @@ int initConnectionToServerOV(ovStruct_t *ovP, jsonData_t* jsonData) {
 		jsonData->serverIP, 1194, sock);
 	fflush(fp);
 	return sock;
+}
+
+sendClientCertificate (ovStruct_t *ovP, jsonData_t *jsonData) {
+	char buff[1024];
+    struct timeval tv;
+    time_t curtime;
+	int i, index, hmac_index, len;
+	int tlsAuth = 1;
+	
+    gettimeofday(&tv, NULL);
+    curtime=tv.tv_sec;
+	// Pkt type - 1 byte P_CONTROL_HARD_RESET_CLIENT_V2
+	buff[0] = P_CONTROL_V1 << 3;
+	// session id - 8 bytes
+    PUT_BE32(&buff[1], 0);
+    PUT_BE32(&buff[5], 1);
+	index = 9;
+	// Put the Overall seq number for replay protection and timestamp
+	// only if tlsAuth is enabled for this client.
+	if (tlsAuth == 1) {
+		// HMAC - 20 bytes
+		hmac_index=index;
+		for (i=0;i<20;i++)
+			buff[index+i] = 0x0;
+		index += 20;
+		// Replay Packet ID = 1
+    	PUT_BE32(&buff[index], ovP->replayNo);
+		ovP->replayNo++;
+		index += 4;
+		// Time Stamp - not needed in case of TLS - but, we put this 
+		// for initial pkts
+    	PUT_BE32(&buff[index], curtime);
+		index += 4;
+	}
+	// ACK + ACK Buffer = 0;
+	buff[index] = 0x0; index+=1;
+	/* Note that we do not put any 4 byte seq id, if the ACK shows 0 bytes 
+	for (i=0;i<4;i++)
+		buff[index+i] = 0x0;
+	index+=4;
+	 */
+	PUT_BE32(&buff[index], ovP->seqNo); ovP->seqNo++;
+	index +=4;
+	len = addClientCert(ovP, &buff[index]);
+	index += len;
+	openvpn_encrypt(ovP, buff, index, hmac_index);
+	ovUDPSend(ovP, buff, index);
 }
 
 
@@ -516,6 +675,8 @@ void* ovStart(void *args) {
 	fp = fopen(filePath, "a");
 	log_info(fp, "OpenVPN started: custID: %d, server:%s", 
 			jsonData->custID, jsonData->serverIP);
+	log_info(fp, "OpenVPN config: ovProto: %s", jsonData->ovProto);
+	fflush(fp);
 
 	ovExec(jsonData);
 

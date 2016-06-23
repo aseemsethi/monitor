@@ -103,6 +103,9 @@ jsonData_t* parse (char* id, FILE *flog, char* configFile) {
 				jsonData->pktSize = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "httpRepeat") == 0) {
 				jsonData->httpRepeat = strtol(s, NULL,0);
+// OpenVPN Params
+			} else if (jsoneq(buff, &tok[i], "ovProto") == 0) {
+				strcpy(jsonData->ovProto, s); 
 // BGP Stuff
 			} else if (jsoneq(buff, &tok[i], "routerID") == 0) {
 				strcpy(jsonData->routerID, s); 
