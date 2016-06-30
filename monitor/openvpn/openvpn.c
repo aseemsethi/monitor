@@ -189,6 +189,173 @@ int addClientCert (ovStruct_t *ovP, char* p) {
 	return length;
 }
 
+/*
+ * Check for:
+ *  - cert identity matching domain name
+ *  - cert is within validity perios
+ *  - digital sig is valid
+ */
+verifyOvCertificate(ovStruct_t *ovP) {
+    uchar *buff, *subj, *issuer;
+    int version;
+    const uchar *ptr, *tmpPtr;
+    const uchar *data;
+    size_t len, msgLen, totalCertLen, serverCertLen;
+    size_t parsedLen = 0;
+    size_t verifyCertLen;
+    int count = 0;
+
+#define CERT_LEN_INDEX 1
+    // buff[0] points to Handshake Type - certificate
+    buff = ovP->certBuff;
+    len = ovP->certLen;
+    msgLen = GET_BE16(&buff[CERT_LEN_INDEX+1]);
+    totalCertLen = GET_BE16(&buff[CERT_LEN_INDEX+1+3]);
+    serverCertLen = GET_BE16(&buff[CERT_LEN_INDEX+1+3+3]);
+    log_info(fp, "\n Pkg Len = %d, Total Cert Len = %d", msgLen, totalCertLen);
+    log_info(fp, "\n Server Certificate verification, Len: %d", serverCertLen);
+    // Parse the Server Cert
+    ptr = &buff[10];
+    X509 *cert = d2i_X509(NULL, &ptr, serverCertLen);
+    if (cert == NULL) {
+        log_info(fp, "\n d2i_X509 returns NULL for Cert verification");
+        return -1;
+    }
+    log_info(fp, "\n.........Server Certificate........................");
+    subj = X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
+    issuer = X509_NAME_oneline(X509_get_issuer_name(cert), NULL, 0);
+    version = ((int)X509_get_version(cert)) + 1; // 0 indexed
+    log_info(fp, "\nSubject: %s, \nIssuer: %s, \n Version: %d",
+        subj, issuer, version);
+    // Get Public Key Algorith Name
+    int pkey = OBJ_obj2nid(cert->cert_info->key->algor->algorithm);
+    if (pkey == NID_undef) {
+        log_info (fp, "\n Cert Verify: unable to find signature algo");
+        goto clean;
+    }
+    char sigalgo[100];
+    const char * sslbuf = OBJ_nid2ln(pkey);
+    if (strlen(sslbuf) > 100) {
+        log_info (fp, "\n Cert Verify: len is greater than allocated");
+        goto clean;
+    }
+    strncpy(sigalgo, sslbuf, 100);
+    log_info(fp, ", Public Key Algorithm Algorithm: %s", sigalgo);
+    EVP_PKEY *public_key = X509_get_pubkey(cert);
+    if (pkey == NID_rsaEncryption) {
+        if (public_key == NULL) {
+            log_info(fp, "\nunable to get public key from certificate");
+            return -1;
+        }
+        char *rsa_e_dec, *rsa_n_hex;
+        ovP->rsa_key = public_key->pkey.rsa;
+        // Both the following are printable strings and need to be freed 
+        // by caling OPENSSL_free()
+        rsa_e_dec = BN_bn2dec(ovP->rsa_key->e); // RSA Exponent
+        rsa_n_hex = BN_bn2hex(ovP->rsa_key->n); // RSA Modulus
+        log_info(fp, "\n RSA Exponent = %s, \n RSA Modulus = %s", rsa_e_dec, rsa_n_hex);
+    }
+    EVP_PKEY_free(public_key);
+clean:
+    OPENSSL_free(subj);
+    OPENSSL_free(issuer);
+    // Parse the Server Cert Chain
+    ptr = &buff[10+serverCertLen]; // Set ptr to point to next Cert Len field
+    parsedLen = serverCertLen+3;
+    tmpPtr = ptr+3;
+    while (parsedLen < totalCertLen) {
+        log_info(fp, "\n.........Server Certificate Chain %d.............", count++);
+        //printf("\n Len: Parsed: %d, Total: %d", parsedLen, totalCertLen);
+        verifyCertLen = GET_BE16(&ptr[1]);
+        log_info(fp, "\nCert Chain Len: %d", verifyCertLen);
+        X509 *cert = d2i_X509(NULL, &tmpPtr, serverCertLen);
+        if (cert == NULL) {
+            log_info(fp, "\n d2i_X509 returns NULL for Cert verification chain");
+            return -1;
+        }
+        subj = X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
+        log_info(fp, "\nSubject: %s", subj);
+        OPENSSL_free(subj);
+        ptr += verifyCertLen + 3; // Set ptr to point to next Cert Len field
+        tmpPtr = ptr+3;
+        parsedLen += verifyCertLen+3;
+    } // End parsing Cert Chain
+    log_info(fp, "\n..................................................");
+}
+
+ovEncrypt (ovStruct_t *ovP, char *buff, char *encryptedBuf, int len) {
+    int padding = RSA_PKCS1_PADDING;
+    int result;
+
+    // The encrypted bufer must be of size RSA_size(rsa_key)
+    log_info(fp, "\nRSA Size = %d", RSA_size(ovP->rsa_key));
+    result = RSA_public_encrypt(len, buff, encryptedBuf,
+                ovP->rsa_key, padding);
+    return result;
+}
+
+int addSslClientKeyExchange (ovStruct_t *ovP, char* p) {
+    uchar buff[1024];
+    uchar plainText[256];
+    uchar encryptedBuf[256];
+    ushort length = 0;
+    struct timeval tv;
+    time_t curtime;
+    int status, result, i;
+
+    log_debug(fp, "OPENVPN SSL: SendClientKeyExchange"); fflush(stdout);
+
+    // Record Hdr (Type, Version, Length)
+    p[0] = 0x16;
+    // SSL 3.0 is 0x0300, TLS ver 1.0 = 3.1, TLS 1.2 is 3.3, 
+    // SSL_VERSION used here is 3.1
+    p[1] = SSL_VERSION_1;
+    p[2] = SSL_VERSION_2;
+    PUT_BE16(&p[3], 0); // **** fill in this later at this point
+    // current length, used by sendData, and also in pkt
+    length = RECORD_HDR_LEN;
+
+    // Note that we have done 5 bytes by now, which should be substracted
+    // from the pkt length for the RecordProtocol.
+
+    p[5] = client_key_exchange;
+    p[6] = 0;  // 3rd MSByte of the Length, usualy 0
+    // length of Handshake pkt following length field = 1 byte
+    PUT_BE16(&p[7], 0); // **** fill in this later at this point
+    length = length + 4;
+
+    /*
+     *  If RSA is being used for key agreement and authentication, the
+     *  client generates a 48-byte premaster secret, encrypts it using the
+     *  public key from the server's certificate, and sends the result in
+     *  an encrypted premaster secret message.  
+     */
+    // pre-master secret encrypted with Server's public key
+    // Total Len = 48 bytes (2 byte version, 46 byte key)
+    // Fil in the 2 Byte Version first
+    plainText[0] = SSL_VERSION_1;
+    plainText[1] = SSL_VERSION_2;
+    // Now fill in the secret key of 46 Bytes
+    // Also save in ovP struct to create master secret
+    strcpy(&plainText[2], "1234567890123456789012345678901234567890123456");
+    memcpy(&(ovP->preMasterSecret[0]), &plainText[0], 48);
+    result = ovEncrypt(ovP, &plainText[0], &encryptedBuf[0], 48);
+    log_info(fp, "\n Encrypted Len = %d", result);
+    memcpy(&p[9], &encryptedBuf[0], result);
+    length = length + result;
+
+    // Finally fill in the lengths of Record and Handshake headers
+    PUT_BE16(&p[3], length-RECORD_HDR_LEN);
+    PUT_BE16(&p[7], length-RECORD_HDR_LEN-4);
+    // Save Client Msgs for making the Finished Msg
+    memcpy(&(ovP->clientHandshakeMsgs[ovP->clientHandshakeMsgsIndex]),
+        &(p[5]), length-RECORD_HDR_LEN);
+    ovP->clientHandshakeMsgsIndex =
+        ovP->clientHandshakeMsgsIndex + length-RECORD_HDR_LEN;
+    log_info(fp, "\n-> Send Client Key Exchange");
+	return length;
+}
+
 // RFC SSL 3.0 https://tools.ietf.org/html/rfc6101
 /*
  * Version used is 3.1 (TLS 1.0)
@@ -376,15 +543,15 @@ void ovListener (ovStruct_t *ovP) {
                 log_info(fp, "      <- Handshake Type: Client Hello"); break;
         	case server_hello:
                 log_info(fp, "      <- Handshake Type:  Server Hello");
-                //recvServerHello(sslP);
+                //recvServerHello(ovP);
                 break;
         	case certificate:
                 log_info(fp, "      <- Handshake Type: Certificate");
-                //recvCertificate (sslP);
+                //recvCertificate (ovP);
                 break;
         	case server_key_exchange:
                 log_info(fp, "      <- Handshake Type: Server Key Exchange");
-                //sslP->paramP->handshakeResp |= set;
+                //ovP->handshakeResp |= set;
                 break;
         	case certificate_request:
                 log_info(fp, "      <- Handshake Type: Certificate Request");
@@ -393,12 +560,13 @@ void ovListener (ovStruct_t *ovP) {
 				// so that we dont use this kludge here
 				if (buff[bytes_recv-4] == 0x0E) {
                 	log_info(fp, "      <- Handshake Type: Server Hello Done");
-					sendClientCertificate(ovP, jsonData);
+					ovSendClientCertificate(ovP, jsonData);
+					ovSendClientKeyExchange(ovP, jsonData);
 				}
                 break;
         	case server_hello_done:
                 log_info(fp, "      <- Handshake Type:  Server Hello Done");
-                //recvServerHelloDone(sslP);
+                //recvServerHelloDone(ovP);
                 break;
         	case certificate_verify:
                 log_info(fp, "      <- Handshake Type: Certificate Verify"); break;
@@ -461,7 +629,7 @@ int initConnectionToServerOV(ovStruct_t *ovP, jsonData_t* jsonData) {
 	return sock;
 }
 
-sendClientCertificate (ovStruct_t *ovP, jsonData_t *jsonData) {
+ovSendClientCertificate (ovStruct_t *ovP, jsonData_t *jsonData) {
 	char buff[1024];
     struct timeval tv;
     time_t curtime;
@@ -503,6 +671,53 @@ sendClientCertificate (ovStruct_t *ovP, jsonData_t *jsonData) {
 	PUT_BE32(&buff[index], ovP->seqNo); ovP->seqNo++;
 	index +=4;
 	len = addClientCert(ovP, &buff[index]);
+	index += len;
+	openvpn_encrypt(ovP, buff, index, hmac_index);
+	ovUDPSend(ovP, buff, index);
+}
+
+ovSendClientKeyExchange (ovStruct_t *ovP, jsonData_t *jsonData) {
+	char buff[1024];
+    struct timeval tv;
+    time_t curtime;
+	int i, index, hmac_index, len;
+	int tlsAuth = 1;
+	
+    gettimeofday(&tv, NULL);
+    curtime=tv.tv_sec;
+	// Pkt type - 1 byte P_CONTROL_HARD_RESET_CLIENT_V2
+	buff[0] = P_CONTROL_V1 << 3;
+	// session id - 8 bytes
+    PUT_BE32(&buff[1], 0);
+    PUT_BE32(&buff[5], 1);
+	index = 9;
+	// Put the Overall seq number for replay protection and timestamp
+	// only if tlsAuth is enabled for this client.
+	if (tlsAuth == 1) {
+		// HMAC - 20 bytes
+		hmac_index=index;
+		for (i=0;i<20;i++)
+			buff[index+i] = 0x0;
+		index += 20;
+		// Replay Packet ID = 1
+    	PUT_BE32(&buff[index], ovP->replayNo);
+		ovP->replayNo++;
+		index += 4;
+		// Time Stamp - not needed in case of TLS - but, we put this 
+		// for initial pkts
+    	PUT_BE32(&buff[index], curtime);
+		index += 4;
+	}
+	// ACK + ACK Buffer = 0;
+	buff[index] = 0x0; index+=1;
+	/* Note that we do not put any 4 byte seq id, if the ACK shows 0 bytes 
+	for (i=0;i<4;i++)
+		buff[index+i] = 0x0;
+	index+=4;
+	 */
+	PUT_BE32(&buff[index], ovP->seqNo); ovP->seqNo++;
+	index +=4;
+	len = addSslClientKeyExchange(ovP, &buff[index]);
 	index += len;
 	openvpn_encrypt(ovP, buff, index, hmac_index);
 	ovUDPSend(ovP, buff, index);

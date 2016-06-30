@@ -10,7 +10,8 @@
 #include <sys/ioctl.h> // SIOCGIFADDR
 #include <netinet/ip_icmp.h>
 #include <pthread.h>
-#include "../xmlparser/xmlparse.h"
+//#include "../xmlparser/xmlparse.h"
+#include "../common/parser.h"
 #include "../common/util.h"
 #include "../common/log.h"
 #include <net/if.h> // ifr
@@ -32,7 +33,7 @@ int id = 0;  // stores the id of each sslPf struct allocated
 
 sslStruct *sslPfQ[3000];
 
-sslPerfGetCertInfo (sslStruct *sslPf, xmlData_t* xmlData) {
+sslPerfGetCertInfo (sslStruct *sslPf, jsonData_t* xmlData) {
 	X509                *cert = NULL;
 	X509_NAME       *certname = NULL;
 
@@ -61,7 +62,7 @@ sslPerfGetCertInfo (sslStruct *sslPf, xmlData_t* xmlData) {
   X509_free(cert);
 }
 
-sslConnectToServer (sslStruct *sslPf, xmlData_t* xmlData) {
+sslConnectToServer (sslStruct *sslPf, jsonData_t* xmlData) {
   BIO               *outbio = NULL;
   const SSL_METHOD *method;
   int ret, i;
@@ -115,13 +116,13 @@ sslConnectToServer (sslStruct *sslPf, xmlData_t* xmlData) {
   return(0);
 }
 
-sslPerfFreeConn (sslStruct *sslPf, xmlData_t* xmlData) {
+sslPerfFreeConn (sslStruct *sslPf, jsonData_t* xmlData) {
 	SSL_free(sslPf->ssl); 
 	SSL_CTX_free(sslPf->ctx);
 	close(sslPf->sock); 
 }
 
-sslPerfCreateConn (sslStruct *sslPf, xmlData_t* xmlData) {
+sslPerfCreateConn (sslStruct *sslPf, jsonData_t* xmlData) {
     struct sockaddr_in;
     
     if((sslPf->sock=socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -148,13 +149,13 @@ sslPerfCreateConn (sslStruct *sslPf, xmlData_t* xmlData) {
 	fflush(fp);
 }
 
-sendHellos(sslStruct *sslP, xmlData_t* xmlData) {
+sendHellos(sslStruct *sslP, jsonData_t* xmlData) {
 	initConnectionToServer(sslP, xmlData);
 	initParams (sslP, sslP->paramP);
 	sendHello (sslP, sslP->paramP);
 }
 
-sslPerfTestsExec (xmlData_t* xmlData) {
+sslPerfTestsExec (jsonData_t* xmlData) {
 	sslStruct *sslPf;
 	int i,j;
 
@@ -252,7 +253,7 @@ int getOwnIP(char *ip) {
 } 
 
 void* sslPerfStart(void *args) {
-    xmlData_t* xmlData = (xmlData_t*)args;
+    jsonData_t* xmlData = (jsonData_t*)args;
     char filePath[100];
 
     // ssl_logs

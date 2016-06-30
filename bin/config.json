@@ -1,8 +1,11 @@
 "Params": "General"
 "custID": "100"
-"serverIP": "10.0.2.15"
+"#serverIP": "10.0.2.15"
 "#serverIP": "127.0.0.1"
-"#serverIP": "192.168.1.107"
+"serverIP": "192.168.1.108"
+
+"Params": "OpenVPN"
+"ovProto": "UDP"
 
 "Params": "SSL"
 "sslPort": "4433"
@@ -52,4 +55,5 @@
 "nlri len":"32"
 "nlri prefix":"100.101.102.103"
 "repeat nlri":"20"
-"repeat update":"1"
+"repeat delay":"2"
+"repeat update":"0"

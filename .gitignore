@@ -1,6 +1,7 @@
 bin/libjsmn.a
 jsmn/jsmn.o
 jsmn/libjsmn.a
+monitor/common/lex.yy.c
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -143,6 +143,8 @@ jsonData_t* parse (char* id, FILE *flog, char* configFile) {
 				nIndex++;
 			} else if (jsoneq(buff, &tok[i], "repeat nlri") == 0) {
 				jsonData->nlriRepeat = strtol(s, NULL,0);
+			} else if (jsoneq(buff, &tok[i], "repeat delay") == 0) {
+				jsonData->nlriRepeatDelay = strtol(s, NULL,0);
 			} else if (jsoneq(buff, &tok[i], "repeat update") == 0) {
 				jsonData->repeatUpdate = strtol(s, NULL,0);
 			}

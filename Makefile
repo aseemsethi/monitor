@@ -1,8 +1,8 @@
-INSTDIR = /home/asethi/monitor/bin
+INSTDIR = ./bin
 
 all:
 	(cd jsmn; make all)
-	(cd monitor; make all)
+	(cd monitor; make)
 install:
 	(cd monitor; make install INSTDIR=${INSTDIR})
 clean:

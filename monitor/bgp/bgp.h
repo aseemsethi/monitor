@@ -26,6 +26,7 @@
 #include <net/if.h>
 #include "../common/util.h"
 #include "../common/log.h"
+#include "../common/parser.h"
 
 #ifndef __PACKET_BGP_H__
 #define __PACKET_BGP_H__
@@ -53,6 +54,15 @@
 typedef unsigned char guint8;
 typedef unsigned short guint16;
 typedef unsigned int guint32;
+
+typedef struct {
+	jsonData_t *jsonData;
+    struct sockaddr_in routerID;
+	int 	holdTime;
+    struct sockaddr_in server_addr;
+    struct sockaddr_ll sll;
+    int sock;
+} bgp_t;
 
 /* BGP OPEN message */
 struct bgp_open {

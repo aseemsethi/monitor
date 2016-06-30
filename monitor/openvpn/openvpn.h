@@ -1,3 +1,14 @@
+/* For Parsing Certificates */
+#include <openssl/x509v3.h>
+#include <openssl/bn.h>
+#include <openssl/asn1.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
+#include <openssl/md5.h>
+/* end */
+
 #define SSL_VERSION_1 3
 #define SSL_VERSION_2 1
 #define RECORD_HDR_LEN 5
@@ -63,7 +74,10 @@ typedef struct {
 	// For SSL
     uchar clientHandshakeMsgs[6000];
     int clientHandshakeMsgsIndex;
-
+    uchar preMasterSecret[48];
+    RSA *rsa_key;
+    uchar *certBuff; // cert recvd in Server Hello
+    int certLen;
 
 	// Recvd from the peer
     int toAck;

@@ -10,8 +10,8 @@
 #include <limits.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
-#include "../common/parser.h"
 #include "../common/log.h"
+#include "bgp.h"
 /* somewhat unix-specific */ 
 #include <sys/time.h>
 #include <unistd.h>
@@ -70,6 +70,7 @@ void* bgpStart(void *args) {
 	// TBD: For now use this to ensure that the listener runs and is 
 	// waiting for pkts
 	printf("\n Entering CLI loop"); fflush(stdout);
+	mainShell();
 	while(1) {
 		sleep(2); 
 		continue;

@@ -3,9 +3,11 @@
 #
 
 # Parameters
-INSTDIR = /home/asethi/monitor/bin
+INSTDIR = ../monitor/bin
 MONT = mont_cust
 CFLAGS = -g
+LEX = lex
+
 
 csrc = $(wildcard ssl/*.c)  \
 	$(wildcard common/*.c)  \
@@ -15,7 +17,9 @@ csrc = $(wildcard ssl/*.c)  \
 	$(wildcard openvpn/*.c) \
 	$(wildcard bgp/*.c) 
 
+
 obj = $(csrc:.c=.o)
+
 
 LDFLAGS = -L../bin -ljsmn -lexpat -lpthread -lcrypto -lssl -lcurl
 
@@ -23,11 +27,14 @@ LDFLAGS = -L../bin -ljsmn -lexpat -lpthread -lcrypto -lssl -lcurl
 all : $(MONT)
 
 $(MONT): $(obj)
-	$(CXX) -g -o $@ $^ $(LDFLAGS)
+	$(LEX) -o common/lex.yy.c common/cli.l
+	gcc -c -o common/lex.yy.o common/lex.yy.c
+	$(CXX) -g -o $@ $^ common/lex.yy.o $(LDFLAGS)
+#	$(CXX) -g -o $@ $^ $(LDFLAGS)
 
 clean:
 	$(RM) core* ssl/*.o ssl_perf/*.o http/*.o bgp/*.o common/*.o \
-		ikev2/*.o openvpn/*.o mont_cust
+		ikev2/*.o openvpn/*.o mont_cust common/lex.yy.c
 
 install:
 	cp $(MONT) ${INSTDIR}

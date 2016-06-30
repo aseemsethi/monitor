@@ -1,9 +1,5 @@
-typedef unsigned short u16;
-typedef unsigned short ushort;
-typedef unsigned long u32;
-typedef unsigned char u8;
-typedef unsigned char uchar;
-
+#ifndef PARSER_FILE
+#define PARSER_FILE
 typedef struct {
     int state;
     int custID;
@@ -42,6 +38,7 @@ typedef struct {
 	int pathIndex;
 	int wIndex;
 	int nlriRepeat;
+	int nlriRepeatDelay;
 	int repeatUpdate;
 } jsonData_t;
-
+#endif
