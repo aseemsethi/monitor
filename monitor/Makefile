@@ -8,9 +8,10 @@ MONT = mont_cust
 CFLAGS = -g
 LEX = lex
 
+#	$(wildcard common/*.c)  \
 
 csrc = $(wildcard ssl/*.c)  \
-	$(wildcard common/*.c)  \
+	common/log.c common/mont_cust.c common/parser.c \
 	$(wildcard ssl_perf/*.c) \
 	$(wildcard http/*.c) \
 	$(wildcard ikev2/*.c) \
@@ -19,7 +20,6 @@ csrc = $(wildcard ssl/*.c)  \
 
 
 obj = $(csrc:.c=.o)
-
 
 LDFLAGS = -L../bin -ljsmn -lexpat -lpthread -lcrypto -lssl -lcurl
 
@@ -31,6 +31,7 @@ $(MONT): $(obj)
 	gcc -c -o common/lex.yy.o common/lex.yy.c
 	$(CXX) -g -o $@ $^ common/lex.yy.o $(LDFLAGS)
 #	$(CXX) -g -o $@ $^ $(LDFLAGS)
+
 
 clean:
 	$(RM) core* ssl/*.o ssl_perf/*.o http/*.o bgp/*.o common/*.o \

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "../common/parser.h"
+#include "../common/util.h"
 /* somewhat unix-specific */ 
 #include <sys/time.h>
 #include <unistd.h>
@@ -50,45 +51,43 @@ sendKeepalive (bgp_t *bgp) {
 	sendBgpData(bgp, (uchar*)&open, 19);
 }
 
-sendUpdateWithdrawFile (bgp_t *bgp) {
+int sendUpdateWithdrawFile (bgp_t *bgp, FILE* fw) {
 	struct bgp_update update;
 	struct bgp_withdrawn *w;
 	int i, j, len, index, totalIndex, pathAttrLen;
 	jsonData_t *jsonData = bgp->jsonData;
     struct sockaddr_in addr;
-	int saveIndexForPathAttrLen = 0;
-	int start = 0;
-#define MAX_ROUTES 800 
-	int end = MAX_ROUTES;
-	int leaveLoop = 0;
-	int count = jsonData->nlriRepeat;
+	uchar buff[22];
+	int val;
+	char *status;
 
-again:
 	log_info(fp, "BGP: Send UPDATE Withdraw"); fflush(stdout);
 	memset(update.bgpo_marker, 0xFF, 16);
 	update.bgpo_type = BGP_UPDATE;
 	len = 21;  // 19 bytes fixed + 2 bytes for len of WithdrawnLen
 	index = 0;
 
-	// We repeat the 1st entry, incrementing the ip addresses till nlriCount
-	printf("\nRepeating Withdrawn Routes");
-	if (count <= MAX_ROUTES) {
-		leaveLoop = 1; end = start + count;
-	} 
-   	if(inet_aton(jsonData->nlriPrefix[0], &addr.sin_addr)==0){
-   		log_error(fp, "inet_aton() failed\n"); fflush(fp);
-		printf("\n inet_aton error !!"); fflush(stdout);
-   	}
-	for(i=start;i<end;i++) {
-		update.ext[index++] = jsonData->nlriLen[0];
-		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr)+i);
-		index += 4;
-		len += 5;
+	// Read from Withdraw File
+   	while (1) {
+		status = fgets(buff, 20, fw);
+		if (status == NULL) {
+			printf("EOF recvd"); break;
+		}
+		val = (int)strtol(buff, (char **)NULL, 10);
+		fgets(buff, 20, fw);
+		printf("\n Withdraw Prefix: %d, Addr:%s", val, buff);
+		if(inet_aton(buff, &addr.sin_addr)==0){
+   			log_error(fp, "inet_aton() failed\n"); fflush(fp);
+			printf("\n inet_aton error !!"); fflush(stdout);
+   		}
+		update.ext[index++] = val;
+		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr));
+		index += 4; len += 5;
 	}
+
 	update.withdrawnLen = htons(index);
 
 	// Len of 0 for Path Attributes
-#include "../common/util.h"
 	PUT_BE16(&update.ext[index], 0);
 	len +=2;
 	update.bgpo_len = htons(len);
@@ -99,15 +98,7 @@ again:
 		printf(" %2X", ((uchar*)&update)[i]);
 #endif
 	sendBgpData(bgp, (uchar*)&update, len);
-	if (leaveLoop == 1) return;
-
-	count = count - MAX_ROUTES;
-	start += MAX_ROUTES; end += MAX_ROUTES; 
-	printf("  Sent: %d, Send Update for remaining: %d", end-start, count);
-	{struct timespec ts;
-    ts.tv_sec = 0; ts.tv_nsec = 800000000;
-    nanosleep(&ts, NULL);}
-	goto again;
+	return 1;
 }
 
 sendUpdateWithdraw (bgp_t *bgp) {
@@ -170,49 +161,26 @@ again:
 	goto again;
 }
 
-sendUpdateFile (bgp_t *bgp) {
+sendUpdateFile (bgp_t *bgp, FILE* fu) {
 	struct bgp_update update;
 	struct bgp_withdrawn *w;
 	int i, j, len, index, totalIndex, pathAttrLen;
 	jsonData_t *jsonData = bgp->jsonData;
     struct sockaddr_in addr;
 	int saveIndexForPathAttrLen = 0;
-	int start = 0;
-#define MAX_ROUTES 800 
-	int end = MAX_ROUTES;
-	int leaveLoop = 0;
-	int count = jsonData->nlriRepeat;
+	uchar buff[22];
+	int val;
+	char  *status;
 
-again:
 	log_info(fp, "BGP: Send UPDATE"); fflush(stdout);
 	memset(update.bgpo_marker, 0xFF, 16);
 	update.bgpo_type = BGP_UPDATE;
 	len = 21;  // 19 bytes fixed + 2 bytes for len of WithdrawnLen
 
 	index = 0;
-	totalIndex = 0;
-	for (j=0;j<jsonData->wIndex;j++) {
-    	struct sockaddr_in addr;
-		w = update.ext + totalIndex;
-		w->withdrawnPrefix = jsonData->withdrawnPrefix[j];
-		index = w->withdrawnPrefix/8;
-    	if(inet_aton(jsonData->withdrawnRoute[j], &addr.sin_addr)==0){
-          	log_error(fp, "inet_aton() failed\n"); fflush(fp);
-			printf("\n inet_aton error !!"); fflush(stdout);
-    	}
-		//log_info(fp, "BGP withdrawRoute= %x", htonl(addr.sin_addr.s_addr));
-		for (i=0; i<index; i++) {
-			w->withdrawnRoute[i]=(htonl(addr.sin_addr.s_addr)>>(8*(3-i)))&0xFF;
-		}
-		index += 1; // 1 for length of withdrawnPrefix
-		totalIndex += index;
-	}
-	len += totalIndex;  // sum up all Withdrawn Routes
-	update.withdrawnLen = htons(totalIndex);
+	update.withdrawnLen = 0;
 
-	index = totalIndex;
 	// Now save the index of where to put in the length for Path Attributes
-#include "../common/util.h"
 	saveIndexForPathAttrLen = index; // This is where pathAttrLen comes in
 	index += 2;
 	for (i=0;i<jsonData->pathIndex;i++) {
@@ -231,7 +199,6 @@ again:
             		log_error(fp, "inet_aton() failed\n"); fflush(fp);
 					printf("\n inet_aton error !!"); fflush(stdout);
     			}
-				//log_info(fp, "BGP PathAttr NextHop= %x", addr.sin_addr.s_addr);
 				PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr));
 				index += 4;
 				break;
@@ -240,31 +207,26 @@ again:
 				break;
 		}
 	}
-	pathAttrLen = index - totalIndex; // This is the len of pathAttr
+	pathAttrLen = index; // This is the len of pathAttr
 	PUT_BE16(&update.ext[saveIndexForPathAttrLen], pathAttrLen-2);
 	len += pathAttrLen;
-
-	for(i=0;i<jsonData->nIndex;i++) {
-		update.ext[index++] = jsonData->nlriLen[i];
-    	if(inet_aton(jsonData->nlriPrefix[i], &addr.sin_addr)==0){
-       		log_error(fp, "inet_aton() failed\n"); fflush(fp);
+	
+	// Read from Update File
+   	while (1) {
+		status = fgets(buff, 20, fu);
+		if (status == NULL) {
+			printf("\n EOF recvd"); break;
+		}
+		val = (int)strtol(buff, (char **)NULL, 10);
+		fgets(buff, 20, fu);
+		printf("\n Update Prefix: %d, Addr:%s", val, buff);
+		if(inet_aton(buff, &addr.sin_addr)==0){
+   			log_error(fp, "inet_aton() failed\n"); fflush(fp);
 			printf("\n inet_aton error !!"); fflush(stdout);
-    	}
-		//log_info(fp, "BGP NLRI = %x", addr.sin_addr.s_addr);
+   		}
+		update.ext[index++] = val;
 		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr));
-		index += 4;
-		len += 5;
-	}
-	// We repeat the 1st entry, incrementing the ip addresses till nlriCount
-	printf("\nRepeating NLRI");
-	if (count <= MAX_ROUTES) {
-		leaveLoop = 1; end = start + count;
-	} 
-	for(i=start;i<end;i++) {
-		update.ext[index++] = jsonData->nlriLen[0];
-		PUT_BE32(&update.ext[index], htonl(addr.sin_addr.s_addr)+i);
-		index += 4;
-		len += 5;
+		index += 4; len += 5;
 	}
 	update.bgpo_len = htons(len);
 
@@ -274,21 +236,6 @@ again:
 		printf(" %2X", ((uchar*)&update)[i]);
 #endif
 	sendBgpData(bgp, (uchar*)&update, len);
-	if (leaveLoop == 1) return;
-
-	count = count - MAX_ROUTES;
-	start += MAX_ROUTES; end += MAX_ROUTES; 
-	printf("  Sent: %d, Send Update for remaining: %d", end-start, count);
-	if (jsonData->nlriRepeatDelay != 0) {
-		printf("\n Sleeping for %d seconds, between 800 route updates",
-				jsonData->nlriRepeatDelay); fflush(stdout);
-		sleep(jsonData->nlriRepeatDelay);
-	} else {	
-		struct timespec ts;
-    	ts.tv_sec = 0; ts.tv_nsec = 800000000;
-    	nanosleep(&ts, NULL);
-	}
-	goto again;
 }
 
 sendUpdate (bgp_t *bgp) {
@@ -314,7 +261,7 @@ again:
 	totalIndex = 0;
 	for (j=0;j<jsonData->wIndex;j++) {
     	struct sockaddr_in addr;
-		w = update.ext + totalIndex;
+		w = ( struct bgp_withdrawn *)(update.ext + totalIndex);
 		w->withdrawnPrefix = jsonData->withdrawnPrefix[j];
 		index = w->withdrawnPrefix/8;
     	if(inet_aton(jsonData->withdrawnRoute[j], &addr.sin_addr)==0){

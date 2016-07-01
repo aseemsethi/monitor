@@ -26,10 +26,28 @@ extern bgp_t bgp;
 ^\n			return NEWLINE;
 %%
 sendUpdateCli(char *fileName) {
-	sendUpdateFile(&bgp);
+	FILE *fu;
+	char filePath[100];
+
+	sprintf(filePath, fileName);
+	fu = fopen(filePath, "r");
+	if (fu == NULL) {
+		printf("Update file %s not present..", filePath); fflush(stdout);
+		return -1;
+	}
+	sendUpdateFile(&bgp, fu);
 }
 sendWithdrawCli(char *fileName) {
-	sendUpdateWithdrawFile(&bgp);
+	FILE *fw;
+	char filePath[100];
+
+	sprintf(filePath, fileName);
+	fw = fopen(filePath, "r");
+	if (fw == NULL) {
+		printf("Withdraw file %s not present..", filePath); fflush(stdout);
+		return -1;
+	}
+	sendUpdateWithdrawFile(&bgp, fw);
 }
 
 int mainShell(int argc, char *argv[]) {
@@ -49,14 +67,14 @@ int mainShell(int argc, char *argv[]) {
 			break;
 		case UPDATE:
 			if (state == ST_PROTO) {
-				printf("Reading file (UPD): %s\n", &token_txt[3]);
-				sendUpdateCli(&token_txt[6]);
+				printf("Reading file (UPD):%s\n", &token_txt[7]);
+				sendUpdateCli(&token_txt[7]);
 			}
 			break;
 		case WITHDRAW:
 			if (state == ST_PROTO) {
-				printf("Reading file (WDR): %s\n", &token_txt[3]);
-				sendWithdrawCli(&token_txt[6]);
+				printf("Reading file (WDR):%s\n", &token_txt[9]);
+				sendWithdrawCli(&token_txt[9]);
 			}
 			break;
 		case END:
