@@ -105,6 +105,13 @@ If "repeat nlri" is set to non-zero value, then the 1st nlri-len/prefix value is
 If "repeat delay" is set, then after every 800 routes sent in 1 packet, there is a sleep of "repeat delay" seconds, before the next 800 routes are sent.
 If "repeat update" is set to a non-zero value, an UPDATE advertising NLRI routes is sent, followed by another UPDATE withdrawing all NLRI routes. This is repeated "nlri update" number of times.
 
+BGP Shell:
+When the tool runs, after the built in tests, it drops to a shell. Here you need to give the following commands
+bgp    -- this puts the tool in “bgp” mode.  Type “exit” to get out of this mode. You will also notice that the prompt changes from “proto>” to “bgp>”, when in “bgp” mode.
+update xxxx   - this sends an update with the contents of the file. As of now, it just repeats the Update packet it sent out last, but I will add the logic for it to read the file xxxx and send its contents by tomorrow.
+withdraw xxxx   - this sends an update-withdraw with the contents of the file. As of now, it just repeats the Update-Withdraw packet it sent out last, but I will add the logic for it to read the file xxxx and send its contents by tomorrow.
+
+
 SSL Versions and Recommendations
 ================================
 SSL 2.0 released in 1995 should no longer be used at all. 
